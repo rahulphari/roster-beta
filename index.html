@@ -197,8 +197,6 @@
                     <div>
                         <p class="font-semibold">Solver not loaded</p>
                         <p class="text-xs text-red-600">Generated using fallback logic (rule-compliant, may be suboptimal).</p>
-                        <p class="text-[11px] text-red-600 mt-1" id="solver-banner-reason"></p>
-                        <p class="text-[11px] text-red-600 mt-1">To enable the solver, replace <code class="bg-red-100 px-1 rounded">vendor/highs.js</code> and add <code class="bg-red-100 px-1 rounded">vendor/highs.wasm</code>.</p>
                     </div>
                 </div>
 
@@ -1057,7 +1055,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="py-2">${draft.attempt.label}</td>
-                    <td class="py-2 text-center" title="${draft.statusMessage || ''}">${draft.status}</td>
+                    <td class="py-2 text-center">${draft.status}</td>
                     <td class="py-2 text-center">${draft.scores.rulesCompliance}%</td>
                     <td class="py-2 text-center">${draft.scores.configCompliance}%</td>
                     <td class="py-2 text-center">${draft.scores.satisfactionScore}%</td>
@@ -1126,13 +1124,10 @@
             applyDraft(result.drafts.indexOf(result.best));
 
             const banner = document.getElementById('solver-banner');
-            const reason = document.getElementById('solver-banner-reason');
             if (result.best.status === 'fallback') {
                 banner.classList.remove('hidden');
-                reason.textContent = result.best.statusMessage || 'HiGHS assets not available in this build.';
             } else {
                 banner.classList.add('hidden');
-                reason.textContent = '';
             }
 
             document.getElementById('roster-title').innerHTML = `<i data-lucide="table-2" class="w-4 h-4 text-slate-400"></i> Generated Schedule`;
