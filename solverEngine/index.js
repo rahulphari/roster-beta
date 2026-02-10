@@ -1,3 +1,4 @@
+// solverEngine/index.js
 (function () {
   let worker = null;
   let requestCounter = 0;
@@ -5,22 +6,65 @@
   function getWorker() {
     if (worker) return worker;
     worker = new Worker('./solverWorker.js');
+
+    // Global event hook for UI (optional)
+    worker.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type === 'status' && window.__onSolverStatus) window.__onSolverStatus(data);
+      if (data.type === 'heartbeat' && window.__onSolverHeartbeat) window.__onSolverHeartbeat(data);
+    });
+
     return worker;
   }
 
-  function solveWithWorker(model, options) {
+  /**
+   * @param {string} model
+   * @param {object} options
+   * @param {object} extras
+   * @param {(evt:any)=>void} extras.onEvent - receives status/heartbeat + final result event
+   * @param {number} extras.timeoutMs
+   */
+  function solveWithWorker(model, options, extras = {}) {
+    const { onEvent, timeoutMs = 30000 } = extras;
+
     return new Promise((resolve) => {
       const w = getWorker();
       const requestId = `${Date.now()}_${requestCounter++}`;
+
+      let timeout = null;
+      if (timeoutMs) {
+        timeout = setTimeout(() => {
+          try {
+            onEvent?.({ type: 'client_timeout', requestId, ts: Date.now() });
+          } catch {}
+          resolve({ status: 'error', message: `Solver timed out after ${Math.round(timeoutMs / 1000)}s` });
+        }, timeoutMs);
+      }
+
       const handler = (event) => {
-        if (event.data.requestId !== requestId) return;
+        const data = event.data || {};
+
+        // Forward worker status to caller (UI)
+        if (data.type === 'status' || data.type === 'heartbeat') {
+          try { onEvent?.(data); } catch {}
+          return;
+        }
+
+        if (data.requestId !== requestId) return;
+
         w.removeEventListener('message', handler);
-        resolve(event.data.result);
+        if (timeout) clearTimeout(timeout);
+
+        try { onEvent?.({ type: 'final', requestId, ts: Date.now(), data }); } catch {}
+        resolve(data.result);
       };
+
       w.addEventListener('message', handler);
       w.postMessage({ model, options, requestId });
     });
   }
+
+  // ---- everything below here is your existing logic unchanged ----
 
   function pickBestDraft(drafts) {
     return drafts.reduce((best, draft) => {
@@ -170,25 +214,35 @@
     return { hardViolations, staffingViolations };
   }
 
-  async function generateRoster({ employees, dates, config, onProgress }) {
+  async function generateRoster({ employees, dates, config, onProgress, onSolverEvent }) {
     const attempts = window.RelaxationPlanner.buildAttempts(config);
     const drafts = [];
 
     for (const attempt of attempts) {
       if (onProgress) onProgress(attempt.label);
+
       const model = window.ModelBuilder.buildModel({ employees, dates, config, attempt });
-      const result = await solveWithWorker(model.lp, { timeLimitSec: config.timeLimitSec || 5 });
+
+      const result = await solveWithWorker(
+        model.lp,
+        { timeLimitSec: config.timeLimitSec || 5 },
+        { onEvent: onSolverEvent, timeoutMs: (config.workerTimeoutMs || 30000) }
+      );
+
       let roster;
       let status = result.status;
+
       if (status === 'ok') {
         roster = normalizeRosterSolution(result.solution, employees, dates, model.shifts);
       } else {
         roster = fallbackGenerate({ employees, dates, config, attempt });
         status = 'fallback';
       }
+
       const validator = validateRoster({ roster, dates, config });
       const scored = window.Scorer.scoreRoster({ roster, employees, dates, config, validatorResult: validator });
       const explained = window.Explainer.explainRoster({ roster, employees, dates, config, validatorResult: validator });
+
       drafts.push({ attempt, roster, status, validator, scores: scored.scores, stats: scored.stats, explanation: explained });
     }
 
