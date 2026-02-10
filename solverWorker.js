@@ -6,10 +6,6 @@ function loadHiGHS() {
   highsInstancePromise = new Promise((resolve) => {
     try {
       importScripts('./vendor/highs.js');
-      if (self.__highsPlaceholder) {
-        resolve({ type: 'missing', message: 'Placeholder HiGHS bundle detected. Replace vendor/highs.js and vendor/highs.wasm.' });
-        return;
-      }
       if (self.createHiGHS) {
         self.createHiGHS()
           .then((instance) => {
@@ -35,7 +31,7 @@ function loadHiGHS() {
 async function solveLP(model, options) {
   const loader = await loadHiGHS();
   if (!loader || loader.type === 'missing' || loader.type === 'error') {
-    return { status: 'no_solver', message: loader?.message || loader?.error?.message || 'HiGHS not available' };
+    return { status: 'no_solver', message: loader?.error?.message || 'HiGHS not available' };
   }
 
   const highs = loader.instance;

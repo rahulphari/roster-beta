@@ -197,8 +197,6 @@
                     <div>
                         <p class="font-semibold">Solver not loaded</p>
                         <p class="text-xs text-red-600">Generated using fallback logic (rule-compliant, may be suboptimal).</p>
-                        <p class="text-[11px] text-red-600 mt-1" id="solver-banner-reason"></p>
-                        <p class="text-[11px] text-red-600 mt-1">To enable the solver, replace <code class="bg-red-100 px-1 rounded">vendor/highs.js</code> and add <code class="bg-red-100 px-1 rounded">vendor/highs.wasm</code>.</p>
                     </div>
                 </div>
 
@@ -1057,7 +1055,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="py-2">${draft.attempt.label}</td>
-                    <td class="py-2 text-center" title="${draft.statusMessage || ''}">${draft.status}</td>
+                    <td class="py-2 text-center">${draft.status}</td>
                     <td class="py-2 text-center">${draft.scores.rulesCompliance}%</td>
                     <td class="py-2 text-center">${draft.scores.configCompliance}%</td>
                     <td class="py-2 text-center">${draft.scores.satisfactionScore}%</td>
@@ -1096,103 +1094,6 @@
             }
         }
 
-        function legacyGenerateRoster({ employees: legacyEmployees, dates: dateKeys, config }) {
-            const legacyConfig = {
-                MIN_SHIFT_DAYS: config.continuity.minDays,
-                MAX_SHIFT_DAYS: config.continuity.maxDays,
-                staffingMatrix: config.staffingMatrix
-            };
-            let rosterData = legacyEmployees.map((emp, i) => ({
-                ...emp,
-                sl: i + 1,
-                logicalRole: emp.role || emp.desg,
-                historyStats: { ...emp.histStats },
-                currentStreak: emp.streak,
-                currentShift: emp.lastShift,
-                daysSinceWO: emp.daysSinceWO,
-                schedule: [],
-                notes: "",
-                prefWO: emp.prefWO,
-                lastWorkBlockLength: emp.lastWorkBlockLength,
-                _tempLastBlock: 0
-            }));
-
-            dateKeys.forEach((dateKey, dayIdx) => {
-                const currentDayOfWeek = new Date(dateKey).getDay();
-                rosterData.forEach(emp => {
-                    let forceWO = false;
-                    const isPrefWODay = (currentDayOfWeek === emp.prefWO);
-                    const isPrefMinus1 = ((currentDayOfWeek + 1) % 7 === emp.prefWO);
-
-                    if (emp.daysSinceWO >= 7) {
-                        forceWO = true;
-                    } else if (emp.daysSinceWO >= 6 && isPrefMinus1) {
-                        forceWO = true;
-                    } else if (emp.daysSinceWO >= 5 && isPrefWODay) {
-                        forceWO = true;
-                    } else if (!forceWO && emp.currentShift === 'C') {
-                        if (emp.currentStreak >= legacyConfig.MIN_SHIFT_DAYS && isPrefWODay && emp.daysSinceWO >= 5) {
-                            forceWO = true;
-                        }
-                    }
-
-                    if (forceWO) {
-                        emp.schedule.push("WO");
-                        emp._tempLastBlock = emp.daysSinceWO;
-                        emp.daysSinceWO = 0;
-
-                        if (emp.currentShift === 'C') {
-                            emp.currentShift = 'A';
-                            if (emp.historyStats.B < emp.historyStats.A) emp.currentShift = 'B';
-                            emp.currentStreak = 0;
-                        } else {
-                            let canRotate = emp.currentStreak >= legacyConfig.MIN_SHIFT_DAYS;
-                            let mustRotate = emp.currentStreak >= legacyConfig.MAX_SHIFT_DAYS;
-                            let nextShift = emp.currentShift;
-
-                            if (mustRotate) {
-                                nextShift = (emp.currentShift === 'A') ? 'B' : 'C';
-                            } else if (canRotate) {
-                                let potential = (emp.currentShift === 'A') ? 'B' : 'C';
-                                if (emp.historyStats[potential] < emp.historyStats[emp.currentShift]) {
-                                    nextShift = potential;
-                                }
-                            }
-                            if (nextShift !== emp.currentShift) {
-                                emp.currentShift = nextShift;
-                                emp.currentStreak = 0;
-                            }
-                        }
-                        return;
-                    }
-
-                    let targetShift = emp.currentShift;
-                    if (emp.currentShift !== 'C') {
-                        if (emp.currentStreak >= legacyConfig.MAX_SHIFT_DAYS) {
-                            targetShift = (emp.currentShift === 'A') ? 'B' : 'C';
-                        }
-                    }
-
-                    emp.schedule.push(targetShift);
-                    emp.daysSinceWO++;
-                    emp.historyStats[targetShift]++;
-
-                    if (targetShift !== emp.currentShift) {
-                        emp.currentShift = targetShift;
-                        emp.currentStreak = 1;
-                    } else {
-                        emp.currentStreak++;
-                    }
-                });
-
-                balanceDaily(rosterData, dayIdx, legacyConfig);
-                complianceSwapEngine(rosterData, dayIdx, legacyConfig);
-            });
-
-            return rosterData;
-        }
-        window.LegacyGenerator = { generate: legacyGenerateRoster };
-
         async function generateRoster(startDateStr, duration) {
             if(!activeConfig) activeConfig = getConfig();
             const config = activeConfig; 
@@ -1223,13 +1124,10 @@
             applyDraft(result.drafts.indexOf(result.best));
 
             const banner = document.getElementById('solver-banner');
-            const reason = document.getElementById('solver-banner-reason');
             if (result.best.status === 'fallback') {
                 banner.classList.remove('hidden');
-                reason.textContent = result.best.statusMessage || 'HiGHS assets not available in this build.';
             } else {
                 banner.classList.add('hidden');
-                reason.textContent = '';
             }
 
             document.getElementById('roster-title').innerHTML = `<i data-lucide="table-2" class="w-4 h-4 text-slate-400"></i> Generated Schedule`;

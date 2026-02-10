@@ -67,9 +67,6 @@
   }
 
   function fallbackGenerate({ employees, dates, config, attempt }) {
-    if (window.LegacyGenerator?.generate) {
-      return window.LegacyGenerator.generate({ employees, dates, config });
-    }
     const shifts = config.shiftMode === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
     const roster = employees.map((emp, idx) => {
       const woDays = buildWOCalendar(dates, idx);
@@ -183,7 +180,6 @@
       const result = await solveWithWorker(model.lp, { timeLimitSec: config.timeLimitSec || 5 });
       let roster;
       let status = result.status;
-      let statusMessage = result.message || '';
       if (status === 'ok') {
         roster = normalizeRosterSolution(result.solution, employees, dates, model.shifts);
       } else {
@@ -193,7 +189,7 @@
       const validator = validateRoster({ roster, dates, config });
       const scored = window.Scorer.scoreRoster({ roster, employees, dates, config, validatorResult: validator });
       const explained = window.Explainer.explainRoster({ roster, employees, dates, config, validatorResult: validator });
-      drafts.push({ attempt, roster, status, statusMessage, validator, scores: scored.scores, stats: scored.stats, explanation: explained });
+      drafts.push({ attempt, roster, status, validator, scores: scored.scores, stats: scored.stats, explanation: explained });
     }
 
     const best = pickBestDraft(drafts);
