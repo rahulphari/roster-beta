@@ -24,6 +24,7 @@
         .cell-B { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
         .cell-C { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .cell-WO { background-color: #f1f5f9; color: #64748b; font-style: italic; border: 1px solid #e2e8f0; }
+        .cell-L { background-color: #ede9fe; color: #6d28d9; font-style: italic; border: 1px solid #ddd6fe; }
         
         /* UPDATED: Strict Sticky Column Styles */
         .sticky-col-1 { 
@@ -190,6 +191,54 @@
                     </div>
                 </div>
 
+                <!-- Solver Status & Compliance -->
+                <div id="solver-banner" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-2xl px-5 py-4 flex items-start gap-3 shadow-sm">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 mt-0.5"></i>
+                    <div>
+                        <p class="font-semibold">Solver not loaded</p>
+                        <p class="text-xs text-red-600">Generated using fallback logic (rule-compliant, may be suboptimal).</p>
+                        <p class="text-[11px] text-red-600 mt-1" id="solver-banner-reason"></p>
+                        <p class="text-[11px] text-red-600 mt-1">To enable the solver, replace <code class="bg-red-100 px-1 rounded">vendor/highs.js</code> and add <code class="bg-red-100 px-1 rounded">vendor/highs.wasm</code>.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                                <i data-lucide="gauge" class="w-4 h-4 text-slate-400"></i> Compliance & Satisfaction
+                            </h3>
+                            <span id="draft-status-pill" class="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-slate-100 text-slate-500 font-bold">Awaiting Draft</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="compliance-metrics">
+                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                <p class="text-[10px] uppercase text-slate-400 font-bold">Rules</p>
+                                <p class="text-xl font-bold text-slate-700" id="metric-rules">--</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                <p class="text-[10px] uppercase text-slate-400 font-bold">Config</p>
+                                <p class="text-xl font-bold text-slate-700" id="metric-config">--</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                <p class="text-[10px] uppercase text-slate-400 font-bold">Satisfaction</p>
+                                <p class="text-xl font-bold text-slate-700" id="metric-satisfaction">--</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                <p class="text-[10px] uppercase text-slate-400 font-bold">Fairness</p>
+                                <p class="text-xl font-bold text-slate-700" id="metric-fairness">--</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                        <h3 class="font-bold text-slate-700 flex items-center gap-2 mb-3">
+                            <i data-lucide="activity" class="w-4 h-4 text-slate-400"></i> Violations
+                        </h3>
+                        <ul id="violation-list" class="text-xs text-slate-600 space-y-2 max-h-40 overflow-auto">
+                            <li class="text-slate-400">No violations detected yet.</li>
+                        </ul>
+                    </div>
+                </div>
+
                 <!-- Roster Grid Container -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px] relative">
                     <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
@@ -226,6 +275,34 @@
                         </table>
                     </div>
                 </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4 text-slate-400"></i> Draft Comparison
+                        </h3>
+                        <span class="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-slate-100 text-slate-500 font-bold">Select best draft</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left">
+                            <thead class="text-[10px] uppercase text-slate-400 border-b">
+                                <tr>
+                                    <th class="py-2">Attempt</th>
+                                    <th class="py-2 text-center">Status</th>
+                                    <th class="py-2 text-center">Rules</th>
+                                    <th class="py-2 text-center">Config</th>
+                                    <th class="py-2 text-center">Satisfaction</th>
+                                    <th class="py-2 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="drafts-body" class="divide-y divide-slate-100 text-slate-600">
+                                <tr>
+                                    <td colspan="6" class="py-4 text-center text-slate-400">No drafts generated yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- ================= VIEW: DATA HUB (Merged Import + Team) ================= -->
@@ -253,6 +330,33 @@
                             </button>
                         </div>
                         <p class="text-xs font-medium text-slate-400 mt-6" id="upload-status">Supported: .xlsx, .csv</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hidden" id="parse-summary">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i data-lucide="file-check" class="w-5 h-5 text-emerald-500"></i>
+                        <h3 class="font-bold text-slate-700">Parse Summary</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <p class="text-[10px] uppercase text-slate-400 font-bold">Employees</p>
+                            <p class="text-lg font-bold text-slate-700" id="summary-employees">0</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <p class="text-[10px] uppercase text-slate-400 font-bold">Date Range</p>
+                            <p class="text-sm font-bold text-slate-700" id="summary-dates">-</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <p class="text-[10px] uppercase text-slate-400 font-bold">Roles</p>
+                            <p class="text-sm font-bold text-slate-700" id="summary-roles">-</p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-[10px] uppercase text-slate-400 font-bold mb-2">Warnings</p>
+                        <ul id="summary-warnings" class="text-xs text-slate-600 space-y-1">
+                            <li class="text-slate-400">No warnings.</li>
+                        </ul>
                     </div>
                 </div>
 
@@ -341,6 +445,35 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h4 class="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                <i data-lucide="cpu" class="w-4 h-4 text-indigo-500"></i> Solver Controls
+                            </h4>
+                            <div class="space-y-4 text-sm">
+                                <div>
+                                    <label class="text-sm font-medium text-slate-600 block mb-1.5">Shift Mode</label>
+                                    <select id="conf-shift-mode" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                        <option value="3">3-Shift (A/B/C)</option>
+                                        <option value="2">2-Shift (A/B)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-slate-600 block mb-1.5">Leave Policy</label>
+                                    <select id="conf-leave-policy" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                        <option value="L_DOES_NOT_REPLACE_WO">Leave does not replace WO</option>
+                                        <option value="L_COUNTS_AS_WO">Leave can replace WO</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between text-xs text-slate-600">
+                                    <span>Allow Continuity Buffer (20%)</span>
+                                    <input type="checkbox" id="conf-allow-buffer" class="h-4 w-4 rounded border-slate-300">
+                                </div>
+                                <div class="flex items-center justify-between text-xs text-slate-600">
+                                    <span>Allow Last-Resort Transitions</span>
+                                    <input type="checkbox" id="conf-allow-last-resort" class="h-4 w-4 rounded border-slate-300">
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Shift Limits Table -->
@@ -395,7 +528,7 @@
                 </div>
                 <div>
                     <h3 class="text-xl font-bold text-slate-800">Generate Roster</h3>
-                    <p class="text-xs text-slate-500">Engine V9.14 Stable WO</p>
+                    <p class="text-xs text-slate-500">Solver-based engine with compliance scoring</p>
                 </div>
             </div>
             
@@ -423,6 +556,27 @@
                 </div>
             </div>
 
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-3">Progress</label>
+                <div class="space-y-2 text-xs" id="progress-steps">
+                    <div class="flex items-center gap-2 text-slate-400" data-step="Building model">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-200"></span> Building model
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-400" data-step="Attempt 1/4 strict">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-200"></span> Attempt 1/4 strict
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-400" data-step="Attempt 2/4 WO ±1">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-200"></span> Attempt 2/4 WO ±1
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-400" data-step="Attempt 3/4 continuity buffer">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-200"></span> Attempt 3/4 continuity buffer
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-400" data-step="Attempt 4/4 last resort transitions">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-200"></span> Attempt 4/4 last resort transitions
+                    </div>
+                </div>
+            </div>
+
             <div class="flex gap-3">
                 <button onclick="closeGenerateModal()" class="flex-1 py-3 text-slate-600 hover:bg-slate-50 font-medium rounded-xl transition-colors">Cancel</button>
                 <button onclick="runGeneration()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-blue-200 transition-all flex justify-center items-center gap-2">
@@ -432,6 +586,12 @@
         </div>
     </div>
 
+    <script src="./solverEngine/modelBuilder.js"></script>
+    <script src="./solverEngine/relaxationPlanner.js"></script>
+    <script src="./solverEngine/scorer.js"></script>
+    <script src="./solverEngine/explainer.js"></script>
+    <script src="./solverEngine/index.js"></script>
+
     <!-- LOGIC SCRIPT (V9.14) -->
     <script>
         // --- 1. STATE & VARS ---
@@ -439,11 +599,14 @@
         let historicalDates = []; 
         let consolidatedHistory = {}; 
         let detectedRoles = new Set();
+        let parseWarnings = [];
+        let nameRoleMap = new Map();
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         
         let generatedRoster = [];
         let dates = [];
         let activeConfig = null; // Store active policy
+        let violationMap = {};
 
         // --- 2. INIT & NAVIGATION ---
         function init() {
@@ -553,22 +716,37 @@
                 };
             });
             return {
-                MIN_SHIFT_DAYS: Number(document.getElementById('conf-min-days').value),
-                MAX_SHIFT_DAYS: Number(document.getElementById('conf-max-days').value),
-                LIMITS: limits
+                shiftMode: (() => {
+                    const selected = Number(document.getElementById('conf-shift-mode').value);
+                    const hasC = Object.values(limits).some((role) => (role.C?.min || 0) > 0 || (role.C?.max || 0) > 0);
+                    return hasC ? selected : 2;
+                })(),
+                continuity: {
+                    minDays: Number(document.getElementById('conf-min-days').value),
+                    maxDays: Number(document.getElementById('conf-max-days').value),
+                    allowBuffer: document.getElementById('conf-allow-buffer').checked
+                },
+                staffingMatrix: limits,
+                leavePolicy: document.getElementById('conf-leave-policy').value,
+                constraintsToggles: {
+                    allowWOPlusMinus1: true,
+                    allowContinuityBuffer: document.getElementById('conf-allow-buffer').checked,
+                    allowLastResortTransitions: document.getElementById('conf-allow-last-resort').checked
+                },
+                timeLimitSec: 6
             };
         }
 
         function updateDashboardPolicyDisplay() {
             if(!activeConfig) activeConfig = getConfig();
-            document.getElementById('snap-min').textContent = activeConfig.MIN_SHIFT_DAYS;
-            document.getElementById('snap-max').textContent = activeConfig.MAX_SHIFT_DAYS;
+            document.getElementById('snap-min').textContent = activeConfig.continuity.minDays;
+            document.getElementById('snap-max').textContent = activeConfig.continuity.maxDays;
             
             const matrixContainer = document.getElementById('snap-matrix-list');
             matrixContainer.innerHTML = '';
             
-            Object.keys(activeConfig.LIMITS).forEach(role => {
-                const l = activeConfig.LIMITS[role];
+            Object.keys(activeConfig.staffingMatrix).forEach(role => {
+                const l = activeConfig.staffingMatrix[role];
                 const item = document.createElement('div');
                 item.className = "text-[10px] leading-tight text-slate-600";
                 item.innerHTML = `<strong>${role}</strong>: A[${l.A.min}-${l.A.max||'∞'}] B[${l.B.min}-${l.B.max||'∞'}] C[${l.C.min}-${l.C.max||'∞'}]`;
@@ -583,7 +761,7 @@
             document.getElementById('upload-status').textContent = `Processing...`;
             document.getElementById('upload-status').className = "text-xs font-medium text-blue-500 mt-6 animate-pulse";
             
-            employees = []; consolidatedHistory = {}; detectedRoles.clear();
+            employees = []; consolidatedHistory = {}; detectedRoles.clear(); parseWarnings = []; nameRoleMap = new Map();
             let allDatesSet = new Set();
             for (const file of files) await processFile(file, allDatesSet);
             historicalDates = Array.from(allDatesSet).sort((a,b) => new Date(a) - new Date(b));
@@ -591,10 +769,11 @@
             
             document.getElementById('upload-status').textContent = `Loaded ${employees.length} records.`;
             document.getElementById('upload-status').className = "text-xs font-medium text-green-600 mt-6";
-            
+
             // Show table & Button
             document.getElementById('team-card').classList.remove('hidden');
             document.getElementById('btn-view-history').classList.remove('hidden');
+            renderParseSummary();
             
             renderConfigLimits();
             renderTeamTable();
@@ -610,14 +789,14 @@
                     workbook.SheetNames.forEach(sheetName => {
                         const sheet = workbook.Sheets[sheetName];
                         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-                        parseSheetData(json, dateSet);
+                        parseSheetData(json, dateSet, sheetName);
                     });
                     resolve();
                 };
                 reader.readAsArrayBuffer(file);
             });
         }
-        function parseSheetData(rows, dateSet) {
+        function parseSheetData(rows, dateSet, sheetName) {
             if (!rows || rows.length < 2) return;
             let headerRowIdx = -1; let colMap = { name: -1, role: -1, ep: -1, dates: [] };
             for (let i = 0; i < Math.min(rows.length, 10); i++) {
@@ -637,35 +816,82 @@
                 const row = rows[i]; const name = row[colMap.name];
                 if (!name || String(name).match(/(saturday|sunday|mon|tue|wed)/i)) continue;
                 const cleanName = String(name).trim();
-                let role = "TL"; if (colMap.role !== -1) role = String(row[colMap.role]).trim().toUpperCase();
+                let role = "UNASSIGNED";
+                if (colMap.role !== -1) role = String(row[colMap.role]).trim().toUpperCase();
+                if (!role || role === "UNASSIGNED") role = inferRoleFromSheet(sheetName) || "UNASSIGNED";
                 if(role) detectedRoles.add(role);
                 const ep = colMap.ep !== -1 ? Number(row[colMap.ep]) || 5 : 5;
-                let emp = employees.find(e => e.name === cleanName);
-                if (!emp) { emp = { id: employees.length + 1, name: cleanName, desg: role, ep: ep, history: {}, metaLastSeen: sheetMaxDate }; employees.push(emp); }
-                else { if (sheetMaxDate > emp.metaLastSeen) { emp.desg = role; emp.ep = ep; emp.metaLastSeen = sheetMaxDate; } }
-                if (!consolidatedHistory[cleanName]) consolidatedHistory[cleanName] = {};
+                const baseKey = normalizeKey(cleanName);
+                const id = `${baseKey}|${role}`;
+                if (nameRoleMap.has(baseKey) && nameRoleMap.get(baseKey) !== role) {
+                    parseWarnings.push(`Role conflict for ${cleanName}: ${nameRoleMap.get(baseKey)} vs ${role}`);
+                } else {
+                    nameRoleMap.set(baseKey, role);
+                }
+                let emp = employees.find(e => e.id === id);
+                if (!emp) { emp = { id, name: cleanName, role, desg: role, ep, history: {}, metaLastSeen: sheetMaxDate, leaveTypes: {} }; employees.push(emp); }
+                else { if (sheetMaxDate > emp.metaLastSeen) { emp.role = role; emp.desg = role; emp.ep = ep; emp.metaLastSeen = sheetMaxDate; } }
+                if (!consolidatedHistory[emp.id]) consolidatedHistory[emp.id] = {};
                 colMap.dates.forEach(d => {
-                    const rawVal = row[d.idx]; let shift = String(rawVal).trim().toUpperCase();
-                    if (shift === '' || shift === '-') return;
-                    if (['A','B','C','W/O','L','LEAVE'].some(s => shift.startsWith(s))) { if (shift.includes('LEAVE')) shift = 'L'; consolidatedHistory[cleanName][d.dateStr] = shift; }
+                    const rawVal = row[d.idx];
+                    const normalized = normalizeShiftValue(rawVal);
+                    if (!normalized) return;
+                    consolidatedHistory[emp.id][d.dateStr] = normalized.shift;
+                    if (normalized.leaveType) emp.leaveTypes[d.dateStr] = normalized.leaveType;
                 });
             }
+        }
+        function normalizeKey(val) { return String(val).trim().toLowerCase().replace(/\\s+/g, ' '); }
+        function inferRoleFromSheet(sheetName) {
+            const match = String(sheetName || '').toUpperCase().match(/D\\d+/);
+            return match ? match[0] : null;
+        }
+        function normalizeShiftValue(value) {
+            if (value === null || value === undefined) return null;
+            const raw = String(value).trim().toUpperCase();
+            if (!raw || raw === '-') return null;
+            if (raw.includes('W/O') || raw.includes('WO') || raw.includes('OFF')) return { shift: 'WO' };
+            if (raw.includes('LEAVE') || raw === 'L' || raw.includes('LF')) {
+                return { shift: 'L', leaveType: raw.includes('LF') ? 'LF' : 'L' };
+            }
+            if (['A','B','C'].includes(raw)) return { shift: raw };
+            return null;
+        }
+        function renderParseSummary() {
+            const summaryCard = document.getElementById('parse-summary');
+            if (!summaryCard) return;
+            summaryCard.classList.remove('hidden');
+            document.getElementById('summary-employees').textContent = employees.length;
+            const dateRange = historicalDates.length ? `${historicalDates[0]} → ${historicalDates[historicalDates.length - 1]}` : '-';
+            document.getElementById('summary-dates').textContent = dateRange;
+            document.getElementById('summary-roles').textContent = Array.from(detectedRoles).join(', ') || '-';
+            const warningsList = document.getElementById('summary-warnings');
+            warningsList.innerHTML = '';
+            if (!parseWarnings.length) {
+                warningsList.innerHTML = '<li class="text-slate-400">No warnings.</li>';
+                return;
+            }
+            parseWarnings.slice(0, 6).forEach((warning) => {
+                const li = document.createElement('li');
+                li.textContent = warning;
+                warningsList.appendChild(li);
+            });
         }
         function isValidDateHeader(val) { if (!val) return false; if (val instanceof Date) return true; const s = String(val); return !isNaN(Date.parse(s)) || /\d{1,2}[\/\-]\d{1,2}/.test(s); }
         function formatDateKey(val) { let d = (val instanceof Date) ? val : new Date(val); if (isNaN(d.getTime())) { const parts = String(val).split(/[\/\-]/); if (parts.length >= 2) { d = new Date(); d.setMonth(parseInt(parts[1])-1); d.setDate(parseInt(parts[0])); } } const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
         function getDayFromDateStr(ymd) { return new Date(ymd + 'T12:00:00').getDay(); }
         function analyzeHistory() {
             employees.forEach(emp => {
-                const hist = consolidatedHistory[emp.name] || {}; const sortedDates = Object.keys(hist).sort((a,b) => new Date(a) - new Date(b));
-                let stats = { A:0, B:0, C:0, L:0 }; let lastShift = "A"; let streak = 0; let daysSinceWO = 0; let totalLeaves = 0; let woCounts = [0,0,0,0,0,0,0]; 
-                Object.entries(hist).forEach(([dateStr, s]) => { if (s === 'A') stats.A++; if (s === 'B') stats.B++; if (s === 'C') stats.C++; if (s === 'L' || s.includes('LEAVE')) totalLeaves++; if (s === 'W/O') woCounts[getDayFromDateStr(dateStr)]++; });
+                const hist = consolidatedHistory[emp.id] || {}; const sortedDates = Object.keys(hist).sort((a,b) => new Date(a) - new Date(b));
+                let stats = { A:0, B:0, C:0, L:0, WO:0 }; let lastShift = "A"; let streak = 0; let daysSinceWO = 0; let totalLeaves = 0; let woCounts = [0,0,0,0,0,0,0]; 
+                Object.entries(hist).forEach(([dateStr, s]) => { if (s === 'A') stats.A++; if (s === 'B') stats.B++; if (s === 'C') stats.C++; if (s === 'L') totalLeaves++; if (s === 'WO') { stats.WO++; woCounts[getDayFromDateStr(dateStr)]++; } });
                 let maxWO = -1; let prefWO = 0; woCounts.forEach((c, i) => { if (c > maxWO) { maxWO = c; prefWO = i; } });
                 
                 // Track previous work block length
                 let lastWOIndex = -1;
                 for (let i = sortedDates.length - 1; i >= 0; i--) {
                     const s = hist[sortedDates[i]];
-                    if (s === 'W/O' || s === 'L') { lastWOIndex = i; break; }
+                    if (s === 'WO' || s === 'L') { lastWOIndex = i; break; }
                 }
                 
                 let prevBlockLength = 6;
@@ -673,7 +899,7 @@
                     let prevWOIndex = -1;
                     for (let i = lastWOIndex - 1; i >= 0; i--) {
                          const s = hist[sortedDates[i]];
-                         if (s === 'W/O' || s === 'L') { prevWOIndex = i; break; }
+                         if (s === 'WO' || s === 'L') { prevWOIndex = i; break; }
                     }
                     if (prevWOIndex !== -1) {
                         let count = 0;
@@ -688,9 +914,9 @@
 
                 if (sortedDates.length > 0) {
                     const lastDate = sortedDates[sortedDates.length - 1]; lastShift = hist[lastDate];
-                    if (['W/O', 'L'].includes(lastShift)) { for (let i = sortedDates.length - 2; i >= 0; i--) { const s = hist[sortedDates[i]]; if (['A','B','C'].includes(s)) { lastShift = s; break; } } }
+                    if (['WO', 'L'].includes(lastShift)) { for (let i = sortedDates.length - 2; i >= 0; i--) { const s = hist[sortedDates[i]]; if (['A','B','C'].includes(s)) { lastShift = s; break; } } }
                     let woCounter = true;
-                    for (let i = sortedDates.length - 1; i >= 0; i--) { const s = hist[sortedDates[i]]; if (['A','B','C'].includes(s)) { if (s === lastShift) streak++; else break; if (woCounter) daysSinceWO++; } else if (s === 'W/O' || s === 'L') { woCounter = false; } }
+                    for (let i = sortedDates.length - 1; i >= 0; i--) { const s = hist[sortedDates[i]]; if (['A','B','C'].includes(s)) { if (s === lastShift) streak++; else break; if (woCounter) daysSinceWO++; } else if (s === 'WO' || s === 'L') { woCounter = false; } }
                 }
                 emp.lastShift = lastShift; emp.streak = streak; emp.daysSinceWO = daysSinceWO; emp.histStats = stats; emp.totalLeaves = totalLeaves; emp.prefWO = prefWO;
                 emp.leaveFactor = sortedDates.length > 0 ? ((totalLeaves / sortedDates.length) * 15).toFixed(1) : "0.0";
@@ -741,6 +967,7 @@
             document.getElementById('roster-status').textContent = "HISTORICAL VIEW";
             document.getElementById('roster-status').className = "text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold";
             document.getElementById('roster-title').innerHTML = `<i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Past Roster Data`;
+            violationMap = {};
             
             // Render using the main grid function but with historical data
             const hDates = historicalDates.map(d => new Date(d));
@@ -761,7 +988,7 @@
                             <td class="px-4 py-3 sticky-col-2 bg-white border-r border-slate-200 text-xs shadow-[4px_0_12px_rgba(0,0,0,0.02)]"><span class="px-2 py-0.5 rounded role-badge font-bold">${emp.desg}</span></td>`;
                 
                 historicalDates.forEach(d => {
-                    const val = consolidatedHistory[emp.name]?.[d] || '-';
+                    const val = consolidatedHistory[emp.id]?.[d] || '-';
                     const cellClass = `cell-${val}`;
                     html += `<td class="px-2 py-2 text-center border-r border-slate-100 font-bold text-xs ${cellClass}">${val}</td>`;
                 });
@@ -800,122 +1027,211 @@
             generateRoster(startStr, duration);
         }
 
-        function generateRoster(startDateStr, duration) {
-            if(!activeConfig) activeConfig = getConfig();
-            const config = activeConfig; 
+        function setProgressStep(label) {
+            const steps = document.querySelectorAll('#progress-steps [data-step]');
+            steps.forEach((step) => {
+                const dot = step.querySelector('span');
+                if (step.dataset.step === label) {
+                    step.classList.remove('text-slate-400');
+                    step.classList.add('text-blue-600');
+                    dot.classList.remove('bg-slate-200');
+                    dot.classList.add('bg-blue-500');
+                }
+            });
+        }
 
-            let currentDt = new Date(startDateStr); dates = [];
-            for(let i=0; i<duration; i++) { dates.push(new Date(currentDt)); currentDt.setDate(currentDt.getDate() + 1); }
+        let draftSolutions = [];
+        function applyDraft(index) {
+            const draft = draftSolutions[index];
+            if (!draft) return;
+            generatedRoster = draft.roster;
+            renderRosterGrid(draft.roster, dates);
+            updateComplianceUI(draft);
+        }
 
-            let rosterData = employees.map((emp, i) => { return { ...emp, sl: i + 1, logicalRole: emp.desg, historyStats: {...emp.histStats}, currentStreak: emp.streak, currentShift: emp.lastShift, daysSinceWO: emp.daysSinceWO, schedule: [], notes: "", prefWO: emp.prefWO, lastWorkBlockLength: emp.lastWorkBlockLength, _tempLastBlock: 0 }; });
+        function updateDraftTable(drafts) {
+            const tbody = document.getElementById('drafts-body');
+            tbody.innerHTML = '';
+            draftSolutions = drafts;
+            drafts.forEach((draft, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2">${draft.attempt.label}</td>
+                    <td class="py-2 text-center" title="${draft.statusMessage || ''}">${draft.status}</td>
+                    <td class="py-2 text-center">${draft.scores.rulesCompliance}%</td>
+                    <td class="py-2 text-center">${draft.scores.configCompliance}%</td>
+                    <td class="py-2 text-center">${draft.scores.satisfactionScore}%</td>
+                    <td class="py-2 text-center">
+                        <button class="px-2 py-1 text-[10px] bg-blue-50 text-blue-600 rounded hover:bg-blue-100" onclick="applyDraft(${idx})">Select</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
 
-            dates.forEach((date, dayIdx) => {
-                const currentDayOfWeek = date.getDay();
+        function updateComplianceUI(draft) {
+            document.getElementById('metric-rules').textContent = `${draft.scores.rulesCompliance}%`;
+            document.getElementById('metric-config').textContent = `${draft.scores.configCompliance}%`;
+            document.getElementById('metric-satisfaction').textContent = `${draft.scores.satisfactionScore}%`;
+            document.getElementById('metric-fairness').textContent = `${draft.scores.fairnessScore}%`;
+            document.getElementById('draft-status-pill').textContent = draft.attempt.label;
+
+            const violations = draft.validator.hardViolations || [];
+            violationMap = {};
+            violations.forEach((v) => {
+                if (v.employeeId && Number.isInteger(v.dayIndex)) {
+                    violationMap[`${v.employeeId}-${v.dayIndex}`] = v;
+                }
+            });
+            const list = document.getElementById('violation-list');
+            list.innerHTML = '';
+            if (!violations.length) {
+                list.innerHTML = '<li class="text-slate-400">No violations detected.</li>';
+            } else {
+                violations.slice(0, 6).forEach((v) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${v.type}: ${v.explanation}`;
+                    list.appendChild(li);
+                });
+            }
+        }
+
+        function legacyGenerateRoster({ employees: legacyEmployees, dates: dateKeys, config }) {
+            const legacyConfig = {
+                MIN_SHIFT_DAYS: config.continuity.minDays,
+                MAX_SHIFT_DAYS: config.continuity.maxDays,
+                staffingMatrix: config.staffingMatrix
+            };
+            let rosterData = legacyEmployees.map((emp, i) => ({
+                ...emp,
+                sl: i + 1,
+                logicalRole: emp.role || emp.desg,
+                historyStats: { ...emp.histStats },
+                currentStreak: emp.streak,
+                currentShift: emp.lastShift,
+                daysSinceWO: emp.daysSinceWO,
+                schedule: [],
+                notes: "",
+                prefWO: emp.prefWO,
+                lastWorkBlockLength: emp.lastWorkBlockLength,
+                _tempLastBlock: 0
+            }));
+
+            dateKeys.forEach((dateKey, dayIdx) => {
+                const currentDayOfWeek = new Date(dateKey).getDay();
                 rosterData.forEach(emp => {
                     let forceWO = false;
-                    let note = "";
-                    
                     const isPrefWODay = (currentDayOfWeek === emp.prefWO);
-                    // Pref-1 Logic: If Pref is Sunday (0), Pref-1 is Saturday (6).
                     const isPrefMinus1 = ((currentDayOfWeek + 1) % 7 === emp.prefWO);
 
-                    // --- 1. GLOBAL LIMIT: ABSOLUTE CAP ---
-                    // "Before exceeding 7 days" -> Max work = 7 days. W/O forced on 8th.
-                    // But preference is for gap <= 6 days.
                     if (emp.daysSinceWO >= 7) {
-                         forceWO = true;
-                         note += "[Max 7d] ";
-                    }
-
-                    // --- 2. PRIORITY STABILITY: PREF-1 ADJUSTMENT ---
-                    // If we have worked 6 days, and tomorrow is Pref W/O (Day 7 work), 
-                    // we prioritize taking W/O TODAY (Day 6 work) to reduce the gap.
-                    // This aligns with "reducing w/o day by -1" to avoid gaps > 6.
-                    else if (emp.daysSinceWO >= 6 && isPrefMinus1) {
                         forceWO = true;
-                        note += "[Pref-1 Adj] ";
-                    }
-
-                    // --- 3. TARGET STABILITY: PREF W/O ---
-                    // If we have worked 5 days (gap=5) or 6 days (gap=6), take Pref W/O.
-                    else if (emp.daysSinceWO >= 5 && isPrefWODay) {
+                    } else if (emp.daysSinceWO >= 6 && isPrefMinus1) {
                         forceWO = true;
-                        note += "[Pref Stable] ";
-                    }
-
-                    // --- 4. C-SHIFT EXCEPTIONS (Only if not forced by above) ---
-                    // If none of the above triggered, we continue working.
-                    // But C-shift has logic to "Extend... to reach preferred W/O".
-                    // However, Rule #2 (Pref-1 Adj) specifically prevents extending if it means working 7 days just to hit Pref.
-                    // So C-shift will naturally fall into Rule #2 or #1.
-                    
-                    // Specific C-shift early exit logic (Reduction)
-                    else if (!forceWO && emp.currentShift === 'C') {
-                        if (emp.currentStreak >= config.MIN_SHIFT_DAYS && isPrefWODay && emp.daysSinceWO >= 5) {
-                             forceWO = true;
-                             note += "[Pref C-Red] ";
+                    } else if (emp.daysSinceWO >= 5 && isPrefWODay) {
+                        forceWO = true;
+                    } else if (!forceWO && emp.currentShift === 'C') {
+                        if (emp.currentStreak >= legacyConfig.MIN_SHIFT_DAYS && isPrefWODay && emp.daysSinceWO >= 5) {
+                            forceWO = true;
                         }
                     }
 
-                    // --- EXECUTE W/O ---
                     if (forceWO) {
-                         emp.schedule.push("W/O");
-                         emp._tempLastBlock = emp.daysSinceWO;
-                         emp.daysSinceWO = 0; 
-                         
-                         // ROTATION LOGIC
-                         if (emp.currentShift === 'C') {
-                             emp.currentShift = 'A'; // Default next
-                             if (emp.historyStats.B < emp.historyStats.A) emp.currentShift = 'B';
-                             emp.currentStreak = 0; 
-                         } else {
-                             let canRotate = emp.currentStreak >= config.MIN_SHIFT_DAYS;
-                             let mustRotate = emp.currentStreak >= config.MAX_SHIFT_DAYS;
-                             let nextShift = emp.currentShift;
-                             
-                             if (mustRotate) {
-                                 nextShift = (emp.currentShift === 'A') ? 'B' : 'C';
-                             } else if (canRotate) {
-                                 let potential = (emp.currentShift === 'A') ? 'B' : 'C';
-                                 if (emp.historyStats[potential] < emp.historyStats[emp.currentShift]) {
-                                     nextShift = potential;
-                                 }
-                             }
-                             if (nextShift !== emp.currentShift) {
-                                 emp.currentShift = nextShift;
-                                 emp.currentStreak = 0;
-                             }
-                         }
-                         return;
+                        emp.schedule.push("WO");
+                        emp._tempLastBlock = emp.daysSinceWO;
+                        emp.daysSinceWO = 0;
+
+                        if (emp.currentShift === 'C') {
+                            emp.currentShift = 'A';
+                            if (emp.historyStats.B < emp.historyStats.A) emp.currentShift = 'B';
+                            emp.currentStreak = 0;
+                        } else {
+                            let canRotate = emp.currentStreak >= legacyConfig.MIN_SHIFT_DAYS;
+                            let mustRotate = emp.currentStreak >= legacyConfig.MAX_SHIFT_DAYS;
+                            let nextShift = emp.currentShift;
+
+                            if (mustRotate) {
+                                nextShift = (emp.currentShift === 'A') ? 'B' : 'C';
+                            } else if (canRotate) {
+                                let potential = (emp.currentShift === 'A') ? 'B' : 'C';
+                                if (emp.historyStats[potential] < emp.historyStats[emp.currentShift]) {
+                                    nextShift = potential;
+                                }
+                            }
+                            if (nextShift !== emp.currentShift) {
+                                emp.currentShift = nextShift;
+                                emp.currentStreak = 0;
+                            }
+                        }
+                        return;
                     }
 
-                    // --- EXECUTE WORK ---
                     let targetShift = emp.currentShift;
-                    
                     if (emp.currentShift !== 'C') {
-                        if (emp.currentStreak >= config.MAX_SHIFT_DAYS) {
-                             targetShift = (emp.currentShift === 'A') ? 'B' : 'C';
+                        if (emp.currentStreak >= legacyConfig.MAX_SHIFT_DAYS) {
+                            targetShift = (emp.currentShift === 'A') ? 'B' : 'C';
                         }
                     }
 
                     emp.schedule.push(targetShift);
                     emp.daysSinceWO++;
                     emp.historyStats[targetShift]++;
-                    
+
                     if (targetShift !== emp.currentShift) {
-                         emp.currentShift = targetShift;
-                         emp.currentStreak = 1;
+                        emp.currentShift = targetShift;
+                        emp.currentStreak = 1;
                     } else {
-                         emp.currentStreak++;
+                        emp.currentStreak++;
                     }
                 });
-                
-                balanceDaily(rosterData, dayIdx, config);
-                complianceSwapEngine(rosterData, dayIdx, config); 
+
+                balanceDaily(rosterData, dayIdx, legacyConfig);
+                complianceSwapEngine(rosterData, dayIdx, legacyConfig);
             });
-            
-            generatedRoster = rosterData;
-            renderRosterGrid(rosterData, dates);
+
+            return rosterData;
+        }
+        window.LegacyGenerator = { generate: legacyGenerateRoster };
+
+        async function generateRoster(startDateStr, duration) {
+            if(!activeConfig) activeConfig = getConfig();
+            const config = activeConfig; 
+
+            let currentDt = new Date(startDateStr); dates = [];
+            for(let i=0; i<duration; i++) { dates.push(new Date(currentDt)); currentDt.setDate(currentDt.getDate() + 1); }
+            const dateKeys = dates.map(d => d.toISOString().split('T')[0]);
+
+            const solverEmployees = employees.map((emp, i) => ({
+                ...emp,
+                role: emp.role || emp.desg,
+                logicalRole: emp.role || emp.desg,
+                sl: i + 1,
+                historyStats: { ...emp.histStats },
+                prefWO: emp.prefWO,
+                leaveMap: emp.leaveTypes || {}
+            }));
+
+            setProgressStep('Building model');
+            const result = await window.SolverEngine.generateRoster({
+                employees: solverEmployees,
+                dates: dateKeys,
+                config,
+                onProgress: setProgressStep
+            });
+
+            updateDraftTable(result.drafts);
+            applyDraft(result.drafts.indexOf(result.best));
+
+            const banner = document.getElementById('solver-banner');
+            const reason = document.getElementById('solver-banner-reason');
+            if (result.best.status === 'fallback') {
+                banner.classList.remove('hidden');
+                reason.textContent = result.best.statusMessage || 'HiGHS assets not available in this build.';
+            } else {
+                banner.classList.add('hidden');
+                reason.textContent = '';
+            }
+
             document.getElementById('roster-title').innerHTML = `<i data-lucide="table-2" class="w-4 h-4 text-slate-400"></i> Generated Schedule`;
             document.getElementById('roster-status').textContent = "Generated Successfully";
             document.getElementById('roster-status').className = "text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-green-100 text-green-700 font-bold";
@@ -928,19 +1244,19 @@
                 roles.forEach(role => {
                     const working = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === shift);
                     const count = working.length;
-                    const roleLimits = config.LIMITS[role] || { A:{min:1, max:null}, B:{min:1, max:null}, C:{min:1, max:null} };
+                    const roleLimits = config.staffingMatrix[role] || { A:{min:1, max:null}, B:{min:1, max:null}, C:{min:1, max:null} };
                     const minReq = roleLimits[shift].min; const maxReq = roleLimits[shift].max;
 
                     if (count < minReq) {
                         const needed = minReq - count;
-                        const candidates = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === "W/O");
+                        const candidates = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === "WO");
                         candidates.sort((a,b) => a.historyStats[shift] - b.historyStats[shift]);
 
                         for(let i=0; i<needed && i<candidates.length; i++) {
                             const cand = candidates[i]; 
                             if (cand.daysSinceWO === 0 && cand._tempLastBlock >= 6) continue;
                             
-                            // V9.9 FIX: C-Shift workers on W/O cannot be pulled to A/B immediately.
+                            // V9.9 FIX: C-Shift workers on WO cannot be pulled to A/B immediately.
                             if (cand.currentShift === 'C' && shift !== 'C') continue;
 
                             if(cand.daysSinceWO === 0) {
@@ -966,7 +1282,7 @@
                         
                         for(let i=0; i<excess; i++) {
                             const w = working[i]; if(w.daysSinceWO > 5) { 
-                                w.schedule[dayIdx] = "W/O"; 
+                                w.schedule[dayIdx] = "WO"; 
                                 w._tempLastBlock = w.daysSinceWO;
                                 w.daysSinceWO = 0; w.currentStreak = 0; 
                                 w.historyStats[shift]--; 
@@ -984,7 +1300,7 @@
             roles.forEach(role => {
                 shifts.forEach(targetShift => {
                     const targetWorkers = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === targetShift);
-                    const roleLimits = config.LIMITS[role] || { A:{min:1}, B:{min:1}, C:{min:1} };
+                    const roleLimits = config.staffingMatrix[role] || { A:{min:1}, B:{min:1}, C:{min:1} };
                     const minReq = roleLimits[targetShift].min;
 
                     if (targetWorkers.length < minReq) {
@@ -1046,9 +1362,12 @@
                 tr.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors group";
                 let html = `<td class="px-6 py-3 font-medium sticky-col-1 bg-white group-hover:bg-slate-50 z-20 border-r border-slate-200 text-slate-700 whitespace-nowrap text-sm shadow-[4px_0_12px_rgba(0,0,0,0.02)]">${emp.name}</td>
                             <td class="px-4 py-3 sticky-col-2 bg-white group-hover:bg-slate-50 z-20 border-r border-slate-200 text-xs shadow-[4px_0_12px_rgba(0,0,0,0.02)]"><span class="px-2 py-0.5 rounded role-badge font-bold">${emp.logicalRole}</span></td>`;
-                emp.schedule.forEach(shift => {
+                emp.schedule.forEach((shift, idx) => {
                     const cellClass = `cell-${shift}`;
-                    html += `<td class="px-2 py-2 text-center border-r border-slate-100 font-bold text-xs ${cellClass}">${shift}</td>`;
+                    const violation = violationMap[`${emp.id}-${idx}`];
+                    const warnClass = violation ? 'ring-2 ring-red-400' : '';
+                    const title = violation ? `Violation: ${violation.explanation}` : '';
+                    html += `<td class="px-2 py-2 text-center border-r border-slate-100 font-bold text-xs ${cellClass} ${warnClass}" title="${title}">${shift}</td>`;
                 });
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
@@ -1062,6 +1381,7 @@
             tfoot.classList.remove('hidden'); tfoot.innerHTML = '';
             const roles = Array.from(detectedRoles);
             
+            const shifts = activeConfig?.shiftMode === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
             // Styles for shifts
             const styles = {
                 'A': { bg: 'bg-green-50', text: 'text-green-900', border: 'border-green-100', headerBg: 'bg-green-100' },
@@ -1069,7 +1389,7 @@
                 'C': { bg: 'bg-red-50', text: 'text-red-900', border: 'border-red-100', headerBg: 'bg-red-100' }
             };
 
-            ['A', 'B', 'C'].forEach(shift => {
+            shifts.forEach(shift => {
                 const tr = document.createElement('tr');
                 const s = styles[shift];
                 
