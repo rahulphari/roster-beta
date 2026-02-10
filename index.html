@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+content = r'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -839,9 +839,9 @@
                 });
             }
         }
-        function normalizeKey(val) { return String(val).trim().toLowerCase().replace(/\\s+/g, ' '); }
+        function normalizeKey(val) { return String(val).trim().toLowerCase().replace(/\s+/g, ' '); }
         function inferRoleFromSheet(sheetName) {
-            const match = String(sheetName || '').toUpperCase().match(/D\\d+/);
+            const match = String(sheetName || '').toUpperCase().match(/D\d+/);
             return match ? match[0] : null;
         }
         function normalizeShiftValue(value) {
@@ -1480,3 +1480,7 @@
     </script>
 </body>
 </html>
+'''
+open('/mnt/data/index.html','w',encoding='utf-8').write(content)
+len(content)
+
