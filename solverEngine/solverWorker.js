@@ -32,6 +32,7 @@ function loadHiGHS() {
         if (path.endsWith('.wasm')) return `./vendor/${path}`;
         return `./vendor/${path}`;
       };
+      importScripts('../vendor/highs.js');
 
       // Optional: some builds use these names:
       self.Module.print = (...args) => postStatus('solver:stdout', args.join(' '));
