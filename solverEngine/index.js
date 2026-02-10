@@ -5,7 +5,7 @@
 
   function getWorker() {
     if (worker) return worker;
-    worker = new Worker('./solverWorker.js');
+    worker = new Worker('./solverEngine/solverWorker.js');
 
     // Global event hook for UI (optional)
     worker.addEventListener('message', (event) => {
