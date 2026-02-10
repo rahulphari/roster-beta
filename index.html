@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roster Studio Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Updated SheetJS CDN to a reliable version -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Grid Colors */
+        .cell-A { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .cell-B { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .cell-C { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .cell-WO { background-color: #f1f5f9; color: #64748b; font-style: italic; border: 1px solid #e2e8f0; }
+        
+        /* UPDATED: Strict Sticky Column Styles */
+        .sticky-col-1 { 
+            position: sticky; 
+            left: 0; 
+            z-index: 40; 
+            width: 150px; 
+            min-width: 150px; 
+            max-width: 150px;
+            background-color: inherit; /* Inherit from row/cell to prevent transparency */
+        }
+        .sticky-col-2 { 
+            position: sticky; 
+            left: 150px; /* Matches width of col-1 */
+            z-index: 40; 
+            width: 130px;
+            min-width: 130px;
+            max-width: 130px;
+            box-shadow: 4px 0 5px -2px rgba(0,0,0,0.05); /* Shadow separator */
+            background-color: inherit;
+        } 
+        
+        /* Ensure table header z-index is higher to float over body content */
+        thead .sticky-col-1, thead .sticky-col-2 { z-index: 50; }
+        tfoot .sticky-col-1, tfoot .sticky-col-2 { z-index: 50; }
+
+        .role-badge { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+
+        .modal-overlay { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+
+        .nav-item.active { background-color: #eff6ff; color: #2563eb; border-right: 3px solid #2563eb; }
+        .nav-item { color: #64748b; border-right: 3px solid transparent; }
+
+        /* New Glow Effect for Low Strength */
+        .glow-red {
+            text-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+            color: #dc2626;
+            font-weight: 800;
+        }
+
+        @media print {
+            .no-print { display: none; }
+            .print-full { width: 100%; max-width: none; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex overflow-hidden">
+
+    <!-- MODERN SIDEBAR (Tabs Style) -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col no-print z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+        <div class="p-6 flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-200">
+                <i data-lucide="calendar-clock" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <!-- 1. Name Change -->
+                <h1 class="font-bold text-slate-800 tracking-tight leading-tight">Roster Studio Pro</h1>
+                <!-- 2. Version Change -->
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">🦅 Black Falcons (ROKA)</p>
+            </div>
+        </div>
+        
+        <nav class="flex-1 px-4 space-y-1 mt-4">
+            <button onclick="switchTab('dashboard')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-50 flex items-center gap-3 transition-all duration-200 group" id="btn-dashboard">
+                <i data-lucide="layout-grid" class="w-5 h-5 group-hover:text-blue-500 transition-colors"></i> 
+                <span class="font-medium">Dashboard</span>
+            </button>
+            <button onclick="switchTab('data')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-50 flex items-center gap-3 transition-all duration-200 group" id="btn-data">
+                <i data-lucide="database" class="w-5 h-5 group-hover:text-blue-500 transition-colors"></i> 
+                <span class="font-medium">Data Hub</span>
+            </button>
+
+            <!-- Embedded User Guides -->
+            <div class="mt-6 px-2">
+                <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-3 px-2 tracking-wider">Knowledge Base</h4>
+                <div class="grid grid-cols-1 gap-2">
+                    <a href="https://docs.google.com/document/d/18KbvFOntQYTmNxvulUZjsXbjJRi1TRMnHRADwl56izo/edit?tab=t.0" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 transition-all text-xs font-medium group">
+                        <span class="w-5 h-5 rounded bg-white flex items-center justify-center text-[10px] shadow-sm">EN</span>
+                        <span>English Guide</span>
+                        <i data-lucide="external-link" class="w-3 h-3 ml-auto opacity-50 group-hover:opacity-100"></i>
+                    </a>
+                    <a href="https://docs.google.com/document/d/1zsmW8GmejnxSi-XQh4iJF7SEb1GLqGo6YgBPdhmk6VM/edit?tab=t.0" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-100 transition-all text-xs font-medium group">
+                        <span class="w-5 h-5 rounded bg-white flex items-center justify-center text-[10px] shadow-sm">HI</span>
+                        <span>Hindi Guide</span>
+                        <i data-lucide="external-link" class="w-3 h-3 ml-auto opacity-50 group-hover:opacity-100"></i>
+                    </a>
+                    <a href="https://docs.google.com/document/d/1TKi4ks9xGB8StuSkiIkczNzsjCf_T86RBLIPJI2pSFw/edit?tab=t.0" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100 transition-all text-xs font-medium group">
+                        <span class="w-5 h-5 rounded bg-white flex items-center justify-center text-[10px] shadow-sm">ML</span>
+                        <span>Kannada Guide</span>
+                        <i data-lucide="external-link" class="w-3 h-3 ml-auto opacity-50 group-hover:opacity-100"></i>
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="p-6">
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <!-- 5. Header Change -->
+                <h4 class="text-xs font-bold text-slate-400 uppercase mb-2">Planning, Perfected</h4>
+                <button onclick="openGenerateModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Generate
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        
+        <!-- HEADER -->
+        <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex justify-between items-center z-10">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800" id="header-title">Dashboard</h2>
+                <p class="text-xs text-slate-500" id="header-subtitle">Overview & Controls</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="openConfigModal()" class="bg-white hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 border border-slate-200 shadow-sm transition-all" title="Configure Rules">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Settings
+                </button>
+                <button onclick="exportToExcel()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 border border-blue-100 shadow-sm transition-all">
+                    <i data-lucide="download" class="w-4 h-4"></i> Export
+                </button>
+            </div>
+        </header>
+
+        <!-- CONTENT SCROLL AREA -->
+        <div class="flex-1 overflow-auto p-8 scroll-smooth" id="main-scroll">
+
+            <!-- ================= VIEW: DASHBOARD ================= -->
+            <div id="view-dashboard" class="view-section space-y-8 animate-fade-in">
+                
+                <!-- Status Bar -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Config Snapshot -->
+                    <div class="col-span-2 bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-center shadow-sm relative overflow-hidden">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Active Policy & Matrix</p>
+                                <div class="text-sm font-medium text-slate-700 space-y-1" id="snap-rules-container">
+                                    <!-- 4. Global to Shift -->
+                                    <p>Shift: Min <span id="snap-min">12</span>d | Max <span id="snap-max">15</span>d</p>
+                                    <div class="text-xs text-slate-500 mt-2 grid grid-cols-2 gap-x-4 gap-y-1" id="snap-matrix-list">
+                                        <!-- Injected Matrix -->
+                                        <span class="italic">No policy loaded.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Legend -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-center shadow-sm">
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-3">Shift Legend</p>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span><span class="text-xs font-bold text-slate-600">A</span></div>
+                            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="text-xs font-bold text-slate-600">B</span></div>
+                            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span><span class="text-xs font-bold text-slate-600">C</span></div>
+                            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span><span class="text-xs font-bold text-slate-600">Off</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Roster Grid Container -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px] relative">
+                    <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                        <h3 class="font-bold text-slate-700 flex items-center gap-2" id="roster-title">
+                            <i data-lucide="table-2" class="w-4 h-4 text-slate-400"></i> Generated Schedule
+                        </h3>
+                        <span id="roster-status" class="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-slate-200 text-slate-600 font-bold">Waiting for Input</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left border-collapse" id="roster-table">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200" id="roster-thead">
+                                <tr id="roster-header">
+                                    <th class="px-6 py-4 sticky-col-1 bg-slate-50 border-r border-slate-200 font-semibold text-slate-600">Employee</th>
+                                    <th class="px-4 py-4 sticky-col-2 bg-slate-50 border-r border-slate-200 font-semibold text-slate-600">Role</th>
+                                    <!-- Dates Injected Here -->
+                                </tr>
+                            </thead>
+                            <tbody id="roster-body">
+                                <tr>
+                                    <td colspan="15" class="py-20 text-center">
+                                        <div class="flex flex-col items-center justify-center opacity-40">
+                                            <i data-lucide="ghost" class="w-12 h-12 mb-4"></i>
+                                            <p class="text-lg font-medium">It's quiet here...</p>
+                                            <p class="text-sm">Go to <b>Data Hub</b> to upload files, then click Auto-Generate.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <!-- DAILY SUMMARY FOOTER (Matrix) -->
+                            <tfoot id="roster-footer" class="bg-slate-50 border-t-2 border-slate-200 hidden shadow-inner">
+                                <!-- Injected via JS -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: DATA HUB (Merged Import + Team) ================= -->
+            <div id="view-data" class="view-section space-y-8 hidden">
+                
+                <!-- 1. Upload Section -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                            <i data-lucide="upload-cloud" class="w-10 h-10 text-blue-600"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Import Historical Roster</h3>
+                        <p class="text-slate-500 mb-8 text-sm max-w-lg mx-auto leading-relaxed">
+                            Upload Excel (.xlsx) files containing past attendance. We'll automatically detect staff, roles, and build continuity context. Multiple tabs supported.
+                        </p>
+                        <div class="flex gap-4 justify-center">
+                            <label class="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3.5 rounded-xl cursor-pointer transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-3 font-medium">
+                                <i data-lucide="file-plus" class="w-5 h-5"></i> Select Files
+                                <input type="file" id="fileInput" multiple accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileUpload(this)">
+                            </label>
+                            <button onclick="viewHistoricalRoster()" id="btn-view-history" class="hidden bg-white border border-slate-300 text-slate-700 px-6 py-3.5 rounded-xl hover:bg-slate-50 font-medium transition-all shadow-sm flex items-center gap-2">
+                                <i data-lucide="history" class="w-5 h-5"></i> View Past Roster
+                            </button>
+                        </div>
+                        <p class="text-xs font-medium text-slate-400 mt-6" id="upload-status">Supported: .xlsx, .csv</p>
+                    </div>
+                </div>
+
+                <!-- 2. Team Analysis Table (Revealed after upload) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden" id="team-card">
+                    <div class="p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center bg-white gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-700 flex items-center gap-2">
+                                <i data-lucide="users" class="w-5 h-5 text-blue-500"></i> Team Intelligence
+                            </h2>
+                            <p class="text-sm text-slate-500 mt-1">Manage team stats and preferred week offs.</p>
+                        </div>
+                        <div class="relative w-full md:w-64">
+                            <input type="text" id="team-search" placeholder="Search people or roles..." onkeyup="filterTeamTable()" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left" id="team-table-el">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200 font-semibold">
+                                <tr>
+                                    <th class="px-6 py-3">Name</th>
+                                    <th class="px-4 py-3">Role</th>
+                                    <th class="px-4 py-3 text-center w-24">EP (Edit)</th>
+                                    <th class="px-4 py-3 text-center">Last Shift</th>
+                                    <th class="px-4 py-3 text-center">Streak</th>
+                                    <th class="px-4 py-3 text-center">Days WO</th>
+                                    <th class="px-4 py-3 text-center bg-indigo-50/50 text-indigo-900 border-x border-indigo-100">Pref W/O</th>
+                                    <th class="px-4 py-3 text-center" title="Days in Shift A">Hist A</th>
+                                    <th class="px-4 py-3 text-center" title="Days in Shift B">Hist B</th>
+                                    <th class="px-4 py-3 text-center" title="Days in Shift C">Hist C</th>
+                                    <th class="px-4 py-3 text-center bg-red-50/50 text-red-900">Leaves (LF)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="team-body" class="divide-y divide-slate-100">
+                                <!-- JS Injection -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- CONFIGURATION MODAL (Moved out of sidebar) -->
+    <div id="config-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-scale-in">
+            <!-- Modal Header -->
+            <div class="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                        <i data-lucide="sliders" class="w-5 h-5 text-slate-700"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">Roster Configuration</h3>
+                        <p class="text-xs text-slate-500">Global constraints & staffing rules</p>
+                    </div>
+                </div>
+                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="flex-1 overflow-y-auto p-8 bg-slate-50/30">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Global Rules -->
+                    <div class="md:col-span-1 space-y-6">
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h4 class="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                <i data-lucide="activity" class="w-4 h-4 text-blue-500"></i> Shift Continuity
+                            </h4>
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="text-sm font-medium text-slate-600 block mb-1.5">Min Days (Stability)</label>
+                                    <!-- 6. Default Min Days: 12 -->
+                                    <input type="number" id="conf-min-days" value="12" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <p class="text-[10px] text-slate-400 mt-1">Min consecutive days before swap.</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-slate-600 block mb-1.5">Max Days (Burnout)</label>
+                                    <!-- 7. Default Max Days: 15 -->
+                                    <input type="number" id="conf-max-days" value="15" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <p class="text-[10px] text-slate-400 mt-1">Max days before Shift Rotation.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shift Limits Table -->
+                    <div class="md:col-span-2">
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-full">
+                            <div class="flex justify-between items-center mb-6">
+                                <h4 class="font-bold text-slate-700 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                    <i data-lucide="users-2" class="w-4 h-4 text-purple-500"></i> Staffing Matrix
+                                </h4>
+                                <button onclick="addCustomRole()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 font-medium transition-colors">
+                                    + Add Role
+                                </button>
+                            </div>
+                            
+                            <div class="overflow-x-auto rounded-lg border border-slate-100">
+                                <table class="w-full text-sm text-left">
+                                    <thead>
+                                        <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider font-semibold">
+                                            <th class="p-3 border-b">Role</th>
+                                            <th class="p-3 border-b text-center bg-green-50/50 text-green-700">Shift A (Min / Max)</th>
+                                            <th class="p-3 border-b text-center bg-amber-50/50 text-amber-700">Shift B (Min / Max)</th>
+                                            <th class="p-3 border-b text-center bg-red-50/50 text-red-700">Shift C (Min / Max)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="config-limits-body" class="divide-y divide-slate-100">
+                                        <!-- JS Injection -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-3 italic text-right">Leave "Max" blank for No Cap.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-6 border-t border-slate-200 bg-white flex justify-end gap-3">
+                <button onclick="closeConfigModal()" class="px-6 py-2.5 rounded-lg text-slate-500 hover:bg-slate-50 font-medium transition-colors">Cancel</button>
+                <button onclick="saveConfig()" class="px-6 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium shadow-md transition-all">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GENERATION MODAL -->
+    <div id="gen-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4 animate-scale-in relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            
+            <div class="flex items-center gap-4 mb-6">
+                <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">Generate Roster</h3>
+                    <p class="text-xs text-slate-500">Engine V9.14 Stable WO</p>
+                </div>
+            </div>
+            
+            <div class="bg-slate-50 p-5 rounded-xl mb-6 border border-slate-200 text-sm space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">History End:</span>
+                    <span id="modal-hist-date" class="font-mono font-medium text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">New Start:</span>
+                    <span id="modal-start-date" class="font-mono font-bold text-blue-600">-</span>
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-3">Duration</label>
+                <div class="grid grid-cols-3 gap-3 mb-3">
+                    <button onclick="setDuration(7)" class="py-2 border border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-sm font-medium transition-all text-slate-600">7 Days</button>
+                    <button onclick="setDuration(14)" class="py-2 border border-blue-500 bg-blue-50 text-blue-700 rounded-lg text-sm font-bold shadow-sm ring-1 ring-blue-500">14 Days</button>
+                    <button onclick="setDuration(28)" class="py-2 border border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-sm font-medium transition-all text-slate-600">28 Days</button>
+                </div>
+                <div class="relative">
+                    <input type="number" id="gen-duration" value="14" class="w-full border border-slate-300 rounded-lg pl-3 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+                    <span class="absolute right-3 top-2.5 text-slate-400 text-sm">Days</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeGenerateModal()" class="flex-1 py-3 text-slate-600 hover:bg-slate-50 font-medium rounded-xl transition-colors">Cancel</button>
+                <button onclick="runGeneration()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-blue-200 transition-all flex justify-center items-center gap-2">
+                    <i data-lucide="play" class="w-4 h-4"></i> Run
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIC SCRIPT (V9.14) -->
+    <script>
+        // --- 1. STATE & VARS ---
+        let employees = []; 
+        let historicalDates = []; 
+        let consolidatedHistory = {}; 
+        let detectedRoles = new Set();
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        let generatedRoster = [];
+        let dates = [];
+        let activeConfig = null; // Store active policy
+
+        // --- 2. INIT & NAVIGATION ---
+        function init() {
+            lucide.createIcons();
+            switchTab('dashboard'); // Default
+            renderConfigLimits(); // Initial empty render or local storage in future
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.view-section').forEach(el => { el.classList.add('hidden'); el.classList.remove('animate-fade-in'); });
+            const target = document.getElementById(`view-${tabId}`);
+            target.classList.remove('hidden');
+            void target.offsetWidth; 
+            target.classList.add('animate-fade-in');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const btn = document.getElementById(`btn-${tabId}`);
+            if(btn) btn.classList.add('active');
+            
+            // 3. Operational Overview to Planning, Perfected
+            const headers = { 'dashboard': { t: 'Dashboard', s: 'Planning, Perfected' }, 'data': { t: 'Data Hub', s: 'Import & Analysis' } };
+            if(headers[tabId]) { document.getElementById('header-title').textContent = headers[tabId].t; document.getElementById('header-subtitle').textContent = headers[tabId].s; }
+        }
+
+        function openConfigModal() { document.getElementById('config-modal').classList.remove('hidden'); }
+        function closeConfigModal() { document.getElementById('config-modal').classList.add('hidden'); }
+
+        // --- 3. CONFIGURATION UI ---
+        function renderConfigLimits() {
+            const tbody = document.getElementById('config-limits-body');
+            tbody.innerHTML = '';
+            
+            if (detectedRoles.size === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400 italic">No roles detected yet. Import data first.</td></tr>`;
+                return;
+            }
+
+            // Count staff per role for smart defaults
+            const roleCounts = {};
+            employees.forEach(e => { roleCounts[e.desg] = (roleCounts[e.desg] || 0) + 1; });
+
+            detectedRoles.forEach(role => {
+                const count = roleCounts[role] || 0;
+                let autoMin = 1; 
+                let autoMax = ""; // Default to unlimited if no data
+
+                if (count > 0) {
+                    const maxWO = Math.ceil(count / 7);
+                    const working = count - maxWO;
+                    
+                    let baseMin = Math.floor(working / 3);
+                    if (working % 3 === 0) baseMin = Math.max(0, baseMin - 1); 
+                    
+                    autoMin = Math.max(1, baseMin); 
+                    autoMax = Math.max(autoMin + 1, working - (2 * autoMin));
+
+                    if(count < 4) { autoMin = 1; autoMax = ""; }
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-4 border-b">
+                        <div class="font-bold text-slate-700">${role}</div>
+                        <div class="text-[10px] text-slate-400 font-medium">${count} Staff</div>
+                    </td>
+                    <td class="p-3 border-b text-center bg-green-50/30">
+                        <div class="flex gap-2 justify-center">
+                            <input type="number" id="lim-${role}-A-min" value="${autoMin}" class="w-16 border border-slate-200 rounded text-center text-xs p-1.5 focus:border-blue-400 outline-none" placeholder="Min">
+                            <input type="number" id="lim-${role}-A-max" value="${autoMax}" class="w-16 border border-slate-200 rounded text-center text-xs p-1.5 focus:border-blue-400 outline-none" placeholder="∞">
+                        </div>
+                    </td>
+                    <td class="p-3 border-b text-center bg-amber-50/30">
+                        <div class="flex gap-2 justify-center">
+                            <input type="number" id="lim-${role}-B-min" value="${autoMin}" class="w-16 border border-slate-200 rounded text-center text-xs p-1.5 focus:border-blue-400 outline-none" placeholder="Min">
+                            <input type="number" id="lim-${role}-B-max" value="${autoMax}" class="w-16 border border-slate-200 rounded text-center text-xs p-1.5 focus:border-blue-400 outline-none" placeholder="∞">
+                        </div>
+                    </td>
+                    <td class="p-3 border-b text-center bg-red-50/30">
+                        <div class="flex gap-2 justify-center">
+                            <input type="number" id="lim-${role}-C-min" value="${autoMin}" class="w-16 border border-slate-200 rounded text-center text-xs p-1.5 focus:border-blue-400 outline-none" placeholder="Min">
+                            <input type="number" id="lim-${role}-C-max" value="${autoMax}" class="w-16 border border-slate-200 rounded text-center text-xs p-1.5 focus:border-blue-400 outline-none" placeholder="∞">
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addCustomRole() {
+            const role = prompt("Enter new Role Name:");
+            if(role) { detectedRoles.add(role.toUpperCase().trim()); renderConfigLimits(); }
+        }
+
+        function saveConfig() {
+            activeConfig = getConfig(); // Capture state
+            updateDashboardPolicyDisplay();
+            closeConfigModal();
+        }
+
+        function getConfig() {
+            const limits = {};
+            detectedRoles.forEach(role => {
+                const getVal = (id) => { const el = document.getElementById(id); if (!el || el.value === "") return null; return Number(el.value); };
+                limits[role] = {
+                    A: { min: getVal(`lim-${role}-A-min`) || 1, max: getVal(`lim-${role}-A-max`) },
+                    B: { min: getVal(`lim-${role}-B-min`) || 1, max: getVal(`lim-${role}-B-max`) },
+                    C: { min: getVal(`lim-${role}-C-min`) || 1, max: getVal(`lim-${role}-C-max`) },
+                };
+            });
+            return {
+                MIN_SHIFT_DAYS: Number(document.getElementById('conf-min-days').value),
+                MAX_SHIFT_DAYS: Number(document.getElementById('conf-max-days').value),
+                LIMITS: limits
+            };
+        }
+
+        function updateDashboardPolicyDisplay() {
+            if(!activeConfig) activeConfig = getConfig();
+            document.getElementById('snap-min').textContent = activeConfig.MIN_SHIFT_DAYS;
+            document.getElementById('snap-max').textContent = activeConfig.MAX_SHIFT_DAYS;
+            
+            const matrixContainer = document.getElementById('snap-matrix-list');
+            matrixContainer.innerHTML = '';
+            
+            Object.keys(activeConfig.LIMITS).forEach(role => {
+                const l = activeConfig.LIMITS[role];
+                const item = document.createElement('div');
+                item.className = "text-[10px] leading-tight text-slate-600";
+                item.innerHTML = `<strong>${role}</strong>: A[${l.A.min}-${l.A.max||'∞'}] B[${l.B.min}-${l.B.max||'∞'}] C[${l.C.min}-${l.C.max||'∞'}]`;
+                matrixContainer.appendChild(item);
+            });
+        }
+
+        // --- 4. DATA IMPORT & ANALYSIS ---
+        async function handleFileUpload(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+            document.getElementById('upload-status').textContent = `Processing...`;
+            document.getElementById('upload-status').className = "text-xs font-medium text-blue-500 mt-6 animate-pulse";
+            
+            employees = []; consolidatedHistory = {}; detectedRoles.clear();
+            let allDatesSet = new Set();
+            for (const file of files) await processFile(file, allDatesSet);
+            historicalDates = Array.from(allDatesSet).sort((a,b) => new Date(a) - new Date(b));
+            analyzeHistory();
+            
+            document.getElementById('upload-status').textContent = `Loaded ${employees.length} records.`;
+            document.getElementById('upload-status').className = "text-xs font-medium text-green-600 mt-6";
+            
+            // Show table & Button
+            document.getElementById('team-card').classList.remove('hidden');
+            document.getElementById('btn-view-history').classList.remove('hidden');
+            
+            renderConfigLimits();
+            renderTeamTable();
+            saveConfig(); // Auto-save default config based on new roles
+        }
+
+        function processFile(file, dateSet) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                        parseSheetData(json, dateSet);
+                    });
+                    resolve();
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+        function parseSheetData(rows, dateSet) {
+            if (!rows || rows.length < 2) return;
+            let headerRowIdx = -1; let colMap = { name: -1, role: -1, ep: -1, dates: [] };
+            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                const row = rows[i];
+                const nameIdx = row.findIndex(c => /(name|employee|staff)/i.test(String(c)));
+                if (nameIdx !== -1) {
+                    headerRowIdx = i; colMap.name = nameIdx;
+                    colMap.role = row.findIndex(c => /(role|desg|designation)/i.test(String(c)));
+                    colMap.ep = row.findIndex(c => /(ep|points|score)/i.test(String(c)));
+                    row.forEach((cell, idx) => { if (isValidDateHeader(cell)) { colMap.dates.push({ idx: idx, dateStr: formatDateKey(cell) }); dateSet.add(formatDateKey(cell)); } });
+                    break;
+                }
+            }
+            if (headerRowIdx === -1) return;
+            let sheetMaxDate = colMap.dates.length > 0 ? colMap.dates.reduce((max, curr) => (curr.dateStr > max ? curr.dateStr : max), "") : "";
+            for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                const row = rows[i]; const name = row[colMap.name];
+                if (!name || String(name).match(/(saturday|sunday|mon|tue|wed)/i)) continue;
+                const cleanName = String(name).trim();
+                let role = "TL"; if (colMap.role !== -1) role = String(row[colMap.role]).trim().toUpperCase();
+                if(role) detectedRoles.add(role);
+                const ep = colMap.ep !== -1 ? Number(row[colMap.ep]) || 5 : 5;
+                let emp = employees.find(e => e.name === cleanName);
+                if (!emp) { emp = { id: employees.length + 1, name: cleanName, desg: role, ep: ep, history: {}, metaLastSeen: sheetMaxDate }; employees.push(emp); }
+                else { if (sheetMaxDate > emp.metaLastSeen) { emp.desg = role; emp.ep = ep; emp.metaLastSeen = sheetMaxDate; } }
+                if (!consolidatedHistory[cleanName]) consolidatedHistory[cleanName] = {};
+                colMap.dates.forEach(d => {
+                    const rawVal = row[d.idx]; let shift = String(rawVal).trim().toUpperCase();
+                    if (shift === '' || shift === '-') return;
+                    if (['A','B','C','W/O','L','LEAVE'].some(s => shift.startsWith(s))) { if (shift.includes('LEAVE')) shift = 'L'; consolidatedHistory[cleanName][d.dateStr] = shift; }
+                });
+            }
+        }
+        function isValidDateHeader(val) { if (!val) return false; if (val instanceof Date) return true; const s = String(val); return !isNaN(Date.parse(s)) || /\d{1,2}[\/\-]\d{1,2}/.test(s); }
+        function formatDateKey(val) { let d = (val instanceof Date) ? val : new Date(val); if (isNaN(d.getTime())) { const parts = String(val).split(/[\/\-]/); if (parts.length >= 2) { d = new Date(); d.setMonth(parseInt(parts[1])-1); d.setDate(parseInt(parts[0])); } } const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
+        function getDayFromDateStr(ymd) { return new Date(ymd + 'T12:00:00').getDay(); }
+        function analyzeHistory() {
+            employees.forEach(emp => {
+                const hist = consolidatedHistory[emp.name] || {}; const sortedDates = Object.keys(hist).sort((a,b) => new Date(a) - new Date(b));
+                let stats = { A:0, B:0, C:0, L:0 }; let lastShift = "A"; let streak = 0; let daysSinceWO = 0; let totalLeaves = 0; let woCounts = [0,0,0,0,0,0,0]; 
+                Object.entries(hist).forEach(([dateStr, s]) => { if (s === 'A') stats.A++; if (s === 'B') stats.B++; if (s === 'C') stats.C++; if (s === 'L' || s.includes('LEAVE')) totalLeaves++; if (s === 'W/O') woCounts[getDayFromDateStr(dateStr)]++; });
+                let maxWO = -1; let prefWO = 0; woCounts.forEach((c, i) => { if (c > maxWO) { maxWO = c; prefWO = i; } });
+                
+                // Track previous work block length
+                let lastWOIndex = -1;
+                for (let i = sortedDates.length - 1; i >= 0; i--) {
+                    const s = hist[sortedDates[i]];
+                    if (s === 'W/O' || s === 'L') { lastWOIndex = i; break; }
+                }
+                
+                let prevBlockLength = 6;
+                if (lastWOIndex !== -1) {
+                    let prevWOIndex = -1;
+                    for (let i = lastWOIndex - 1; i >= 0; i--) {
+                         const s = hist[sortedDates[i]];
+                         if (s === 'W/O' || s === 'L') { prevWOIndex = i; break; }
+                    }
+                    if (prevWOIndex !== -1) {
+                        let count = 0;
+                        for(let k = prevWOIndex + 1; k < lastWOIndex; k++) {
+                             const s = hist[sortedDates[k]];
+                             if(['A','B','C'].includes(s)) count++;
+                        }
+                        prevBlockLength = count;
+                    }
+                }
+                emp.lastWorkBlockLength = prevBlockLength;
+
+                if (sortedDates.length > 0) {
+                    const lastDate = sortedDates[sortedDates.length - 1]; lastShift = hist[lastDate];
+                    if (['W/O', 'L'].includes(lastShift)) { for (let i = sortedDates.length - 2; i >= 0; i--) { const s = hist[sortedDates[i]]; if (['A','B','C'].includes(s)) { lastShift = s; break; } } }
+                    let woCounter = true;
+                    for (let i = sortedDates.length - 1; i >= 0; i--) { const s = hist[sortedDates[i]]; if (['A','B','C'].includes(s)) { if (s === lastShift) streak++; else break; if (woCounter) daysSinceWO++; } else if (s === 'W/O' || s === 'L') { woCounter = false; } }
+                }
+                emp.lastShift = lastShift; emp.streak = streak; emp.daysSinceWO = daysSinceWO; emp.histStats = stats; emp.totalLeaves = totalLeaves; emp.prefWO = prefWO;
+                emp.leaveFactor = sortedDates.length > 0 ? ((totalLeaves / sortedDates.length) * 15).toFixed(1) : "0.0";
+            });
+        }
+
+        // --- 5. DATA HUB UI & FUNCTIONS ---
+        function renderTeamTable() {
+            const tbody = document.getElementById('team-body');
+            tbody.innerHTML = '';
+            employees.forEach((emp, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-50 hover:bg-slate-50 transition-colors team-row";
+                tr.dataset.search = (emp.name + " " + emp.desg).toLowerCase();
+                tr.innerHTML = `
+                    <td class="px-6 py-3 font-medium text-slate-700 whitespace-nowrap">${emp.name}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-bold role-badge whitespace-nowrap">${emp.desg}</span></td>
+                    <td class="px-4 py-3 text-center">
+                        <input type="number" value="${emp.ep}" class="w-12 text-center border rounded px-1 py-0.5 text-xs bg-white" onchange="updateEP(${index}, this.value)">
+                    </td>
+                    <td class="px-4 py-3 text-center text-slate-600 font-medium">${emp.lastShift}</td>
+                    <td class="px-4 py-3 text-center text-slate-500">${emp.streak}</td>
+                    <td class="px-4 py-3 text-center text-slate-500">${emp.daysSinceWO}</td>
+                    <td class="px-4 py-3 text-center font-semibold text-indigo-600 bg-indigo-50/30 border-x border-slate-50">${dayNames[emp.prefWO]}</td>
+                    <td class="px-4 py-3 text-center text-slate-400">${emp.histStats.A}</td>
+                    <td class="px-4 py-3 text-center text-slate-400">${emp.histStats.B}</td>
+                    <td class="px-4 py-3 text-center text-slate-400">${emp.histStats.C}</td>
+                    <td class="px-4 py-3 text-center text-red-600 font-bold bg-red-50/30">${emp.totalLeaves} <span class="text-[10px] font-normal text-red-400">(${emp.leaveFactor})</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateEP(index, val) {
+            employees[index].ep = Number(val);
+        }
+
+        function filterTeamTable() {
+            const term = document.getElementById('team-search').value.toLowerCase();
+            document.querySelectorAll('.team-row').forEach(row => {
+                const txt = row.dataset.search;
+                row.style.display = txt.includes(term) ? '' : 'none';
+            });
+        }
+
+        function viewHistoricalRoster() {
+            switchTab('dashboard'); // Switch to main view
+            document.getElementById('roster-status').textContent = "HISTORICAL VIEW";
+            document.getElementById('roster-status').className = "text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold";
+            document.getElementById('roster-title').innerHTML = `<i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Past Roster Data`;
+            
+            // Render using the main grid function but with historical data
+            const hDates = historicalDates.map(d => new Date(d));
+            const header = document.getElementById('roster-header');
+            header.innerHTML = `<th class="px-6 py-4 sticky-col-1 bg-slate-50 z-30 border-r border-slate-200 font-semibold text-slate-600">Employee</th>
+                                <th class="px-4 py-4 sticky-col-2 bg-slate-50 z-30 border-r border-slate-200 font-semibold text-slate-600">Role</th>`;
+            hDates.forEach(d => {
+                const day = d.getDate(); const month = d.getMonth() + 1; const dayOfWeek = dayNames[d.getDay()];
+                header.innerHTML += `<th class="px-2 py-3 text-center min-w-[3.5rem] border-r border-slate-100"><div class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">${dayOfWeek}</div><div class="text-sm font-bold text-slate-700">${day}/${month}</div></th>`;
+            });
+
+            const tbody = document.getElementById('roster-body');
+            tbody.innerHTML = '';
+            employees.forEach(emp => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors";
+                let html = `<td class="px-6 py-3 font-medium sticky-col-1 bg-white border-r border-slate-200 text-slate-700 text-sm shadow-[4px_0_12px_rgba(0,0,0,0.02)]">${emp.name}</td>
+                            <td class="px-4 py-3 sticky-col-2 bg-white border-r border-slate-200 text-xs shadow-[4px_0_12px_rgba(0,0,0,0.02)]"><span class="px-2 py-0.5 rounded role-badge font-bold">${emp.desg}</span></td>`;
+                
+                historicalDates.forEach(d => {
+                    const val = consolidatedHistory[emp.name]?.[d] || '-';
+                    const cellClass = `cell-${val}`;
+                    html += `<td class="px-2 py-2 text-center border-r border-slate-100 font-bold text-xs ${cellClass}">${val}</td>`;
+                });
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+            
+            // Hide footer for history view
+            document.getElementById('roster-footer').classList.add('hidden');
+        }
+
+        // --- 6. GENERATION LOGIC (V9.14 Optimized) ---
+        function openGenerateModal() {
+            const modal = document.getElementById('gen-modal');
+            if (!modal) { console.error("Gen Modal not found"); return; } // Safety
+            
+            let maxDateStr = historicalDates.length > 0 ? historicalDates[historicalDates.length - 1] : new Date().toISOString().split('T')[0];
+            
+            const histDateEl = document.getElementById('modal-hist-date');
+            if (histDateEl) histDateEl.textContent = maxDateStr;
+            
+            let nextDay = new Date(maxDateStr); nextDay.setDate(nextDay.getDate() + 1);
+            
+            const startDateEl = document.getElementById('modal-start-date');
+            if (startDateEl) startDateEl.textContent = nextDay.toISOString().split('T')[0];
+            
+            modal.classList.remove('hidden');
+        }
+        function closeGenerateModal() { document.getElementById('gen-modal').classList.add('hidden'); }
+        function setDuration(d) { document.getElementById('gen-duration').value = d; }
+        
+        function runGeneration() {
+            const duration = Number(document.getElementById('gen-duration').value);
+            const startStr = document.getElementById('modal-start-date').textContent;
+            closeGenerateModal();
+            generateRoster(startStr, duration);
+        }
+
+        function generateRoster(startDateStr, duration) {
+            if(!activeConfig) activeConfig = getConfig();
+            const config = activeConfig; 
+
+            let currentDt = new Date(startDateStr); dates = [];
+            for(let i=0; i<duration; i++) { dates.push(new Date(currentDt)); currentDt.setDate(currentDt.getDate() + 1); }
+
+            let rosterData = employees.map((emp, i) => { return { ...emp, sl: i + 1, logicalRole: emp.desg, historyStats: {...emp.histStats}, currentStreak: emp.streak, currentShift: emp.lastShift, daysSinceWO: emp.daysSinceWO, schedule: [], notes: "", prefWO: emp.prefWO, lastWorkBlockLength: emp.lastWorkBlockLength, _tempLastBlock: 0 }; });
+
+            dates.forEach((date, dayIdx) => {
+                const currentDayOfWeek = date.getDay();
+                rosterData.forEach(emp => {
+                    let forceWO = false;
+                    let note = "";
+                    
+                    const isPrefWODay = (currentDayOfWeek === emp.prefWO);
+                    // Pref-1 Logic: If Pref is Sunday (0), Pref-1 is Saturday (6).
+                    const isPrefMinus1 = ((currentDayOfWeek + 1) % 7 === emp.prefWO);
+
+                    // --- 1. GLOBAL LIMIT: ABSOLUTE CAP ---
+                    // "Before exceeding 7 days" -> Max work = 7 days. W/O forced on 8th.
+                    // But preference is for gap <= 6 days.
+                    if (emp.daysSinceWO >= 7) {
+                         forceWO = true;
+                         note += "[Max 7d] ";
+                    }
+
+                    // --- 2. PRIORITY STABILITY: PREF-1 ADJUSTMENT ---
+                    // If we have worked 6 days, and tomorrow is Pref W/O (Day 7 work), 
+                    // we prioritize taking W/O TODAY (Day 6 work) to reduce the gap.
+                    // This aligns with "reducing w/o day by -1" to avoid gaps > 6.
+                    else if (emp.daysSinceWO >= 6 && isPrefMinus1) {
+                        forceWO = true;
+                        note += "[Pref-1 Adj] ";
+                    }
+
+                    // --- 3. TARGET STABILITY: PREF W/O ---
+                    // If we have worked 5 days (gap=5) or 6 days (gap=6), take Pref W/O.
+                    else if (emp.daysSinceWO >= 5 && isPrefWODay) {
+                        forceWO = true;
+                        note += "[Pref Stable] ";
+                    }
+
+                    // --- 4. C-SHIFT EXCEPTIONS (Only if not forced by above) ---
+                    // If none of the above triggered, we continue working.
+                    // But C-shift has logic to "Extend... to reach preferred W/O".
+                    // However, Rule #2 (Pref-1 Adj) specifically prevents extending if it means working 7 days just to hit Pref.
+                    // So C-shift will naturally fall into Rule #2 or #1.
+                    
+                    // Specific C-shift early exit logic (Reduction)
+                    else if (!forceWO && emp.currentShift === 'C') {
+                        if (emp.currentStreak >= config.MIN_SHIFT_DAYS && isPrefWODay && emp.daysSinceWO >= 5) {
+                             forceWO = true;
+                             note += "[Pref C-Red] ";
+                        }
+                    }
+
+                    // --- EXECUTE W/O ---
+                    if (forceWO) {
+                         emp.schedule.push("W/O");
+                         emp._tempLastBlock = emp.daysSinceWO;
+                         emp.daysSinceWO = 0; 
+                         
+                         // ROTATION LOGIC
+                         if (emp.currentShift === 'C') {
+                             emp.currentShift = 'A'; // Default next
+                             if (emp.historyStats.B < emp.historyStats.A) emp.currentShift = 'B';
+                             emp.currentStreak = 0; 
+                         } else {
+                             let canRotate = emp.currentStreak >= config.MIN_SHIFT_DAYS;
+                             let mustRotate = emp.currentStreak >= config.MAX_SHIFT_DAYS;
+                             let nextShift = emp.currentShift;
+                             
+                             if (mustRotate) {
+                                 nextShift = (emp.currentShift === 'A') ? 'B' : 'C';
+                             } else if (canRotate) {
+                                 let potential = (emp.currentShift === 'A') ? 'B' : 'C';
+                                 if (emp.historyStats[potential] < emp.historyStats[emp.currentShift]) {
+                                     nextShift = potential;
+                                 }
+                             }
+                             if (nextShift !== emp.currentShift) {
+                                 emp.currentShift = nextShift;
+                                 emp.currentStreak = 0;
+                             }
+                         }
+                         return;
+                    }
+
+                    // --- EXECUTE WORK ---
+                    let targetShift = emp.currentShift;
+                    
+                    if (emp.currentShift !== 'C') {
+                        if (emp.currentStreak >= config.MAX_SHIFT_DAYS) {
+                             targetShift = (emp.currentShift === 'A') ? 'B' : 'C';
+                        }
+                    }
+
+                    emp.schedule.push(targetShift);
+                    emp.daysSinceWO++;
+                    emp.historyStats[targetShift]++;
+                    
+                    if (targetShift !== emp.currentShift) {
+                         emp.currentShift = targetShift;
+                         emp.currentStreak = 1;
+                    } else {
+                         emp.currentStreak++;
+                    }
+                });
+                
+                balanceDaily(rosterData, dayIdx, config);
+                complianceSwapEngine(rosterData, dayIdx, config); 
+            });
+            
+            generatedRoster = rosterData;
+            renderRosterGrid(rosterData, dates);
+            document.getElementById('roster-title').innerHTML = `<i data-lucide="table-2" class="w-4 h-4 text-slate-400"></i> Generated Schedule`;
+            document.getElementById('roster-status').textContent = "Generated Successfully";
+            document.getElementById('roster-status').className = "text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-green-100 text-green-700 font-bold";
+            switchTab('dashboard');
+        }
+
+        function balanceDaily(rosterData, dayIdx, config) {
+            const shifts = ["A", "B", "C"]; const roles = Array.from(detectedRoles);
+            shifts.forEach(shift => {
+                roles.forEach(role => {
+                    const working = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === shift);
+                    const count = working.length;
+                    const roleLimits = config.LIMITS[role] || { A:{min:1, max:null}, B:{min:1, max:null}, C:{min:1, max:null} };
+                    const minReq = roleLimits[shift].min; const maxReq = roleLimits[shift].max;
+
+                    if (count < minReq) {
+                        const needed = minReq - count;
+                        const candidates = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === "W/O");
+                        candidates.sort((a,b) => a.historyStats[shift] - b.historyStats[shift]);
+
+                        for(let i=0; i<needed && i<candidates.length; i++) {
+                            const cand = candidates[i]; 
+                            if (cand.daysSinceWO === 0 && cand._tempLastBlock >= 6) continue;
+                            
+                            // V9.9 FIX: C-Shift workers on W/O cannot be pulled to A/B immediately.
+                            if (cand.currentShift === 'C' && shift !== 'C') continue;
+
+                            if(cand.daysSinceWO === 0) {
+                                cand.daysSinceWO = cand._tempLastBlock + 1;
+                            } else {
+                                cand.daysSinceWO++; 
+                            }
+                            
+                            if (cand.currentShift === shift) {
+                                cand.currentStreak++; 
+                            } else {
+                                cand.currentShift = shift; 
+                                cand.currentStreak = 1; 
+                            }
+                            
+                            cand.schedule[dayIdx] = shift; 
+                            cand.historyStats[shift]++; 
+                        }
+                    }
+                    if (maxReq !== null && count > maxReq) {
+                        const excess = count - maxReq; 
+                        working.sort((a,b) => b.historyStats[shift] - a.historyStats[shift]);
+                        
+                        for(let i=0; i<excess; i++) {
+                            const w = working[i]; if(w.daysSinceWO > 5) { 
+                                w.schedule[dayIdx] = "W/O"; 
+                                w._tempLastBlock = w.daysSinceWO;
+                                w.daysSinceWO = 0; w.currentStreak = 0; 
+                                w.historyStats[shift]--; 
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        function complianceSwapEngine(rosterData, dayIdx, config) {
+            const shifts = ["A", "B", "C"];
+            const roles = Array.from(detectedRoles);
+
+            roles.forEach(role => {
+                shifts.forEach(targetShift => {
+                    const targetWorkers = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === targetShift);
+                    const roleLimits = config.LIMITS[role] || { A:{min:1}, B:{min:1}, C:{min:1} };
+                    const minReq = roleLimits[targetShift].min;
+
+                    if (targetWorkers.length < minReq) {
+                        const deficit = minReq - targetWorkers.length;
+                        let swapped = 0;
+                        const potentialDonors = shifts.filter(s => s !== targetShift && s !== 'C'); 
+                        
+                        potentialDonors.sort((a, b) => {
+                             const countA = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === a).length;
+                             const countB = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === b).length;
+                             return countB - countA; 
+                        });
+
+                        for (const donorShift of potentialDonors) {
+                            if (swapped >= deficit) break;
+                            const donorWorkers = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === donorShift);
+                            const donorMin = roleLimits[donorShift].min;
+                            let availableToTake = donorWorkers.length - donorMin;
+                            if (availableToTake <= 0) continue;
+
+                            donorWorkers.sort((a,b) => {
+                                const scoreA = a.historyStats[donorShift] - a.historyStats[targetShift];
+                                const scoreB = b.historyStats[donorShift] - b.historyStats[targetShift];
+                                return scoreB - scoreA; 
+                            });
+
+                            for (let k = 0; k < donorWorkers.length && swapped < deficit && availableToTake > 0; k++) {
+                                const cand = donorWorkers[k];
+                                cand.historyStats[cand.currentShift]--; 
+                                cand.schedule[dayIdx] = targetShift;
+                                cand.historyStats[targetShift]++;
+
+                                cand.currentShift = targetShift; 
+                                cand.currentStreak = 1;
+                                
+                                swapped++; availableToTake--;
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // --- RENDERERS ---
+        function renderRosterGrid(rosterData, dates) {
+            const thead = document.getElementById('roster-header');
+            thead.innerHTML = `<th class="px-6 py-4 sticky-col-1 bg-slate-50 z-30 border-r border-slate-200 font-semibold text-slate-600">Employee</th>
+                               <th class="px-4 py-4 sticky-col-2 bg-slate-50 z-30 border-r border-slate-200 font-semibold text-slate-600">Role</th>`;
+            dates.forEach(d => {
+                const day = d.getDate(); const month = d.getMonth() + 1; const dayOfWeek = dayNames[d.getDay()];
+                const isWeekend = d.getDay() === 0 || d.getDay() === 6; const bg = isWeekend ? 'bg-slate-100/50' : '';
+                thead.innerHTML += `<th class="px-2 py-3 text-center min-w-[3.5rem] border-r border-slate-100 ${bg}"><div class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">${dayOfWeek}</div><div class="text-sm font-bold text-slate-700">${day}/${month}</div></th>`;
+            });
+
+            const tbody = document.getElementById('roster-body');
+            tbody.innerHTML = '';
+            rosterData.forEach(emp => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors group";
+                let html = `<td class="px-6 py-3 font-medium sticky-col-1 bg-white group-hover:bg-slate-50 z-20 border-r border-slate-200 text-slate-700 whitespace-nowrap text-sm shadow-[4px_0_12px_rgba(0,0,0,0.02)]">${emp.name}</td>
+                            <td class="px-4 py-3 sticky-col-2 bg-white group-hover:bg-slate-50 z-20 border-r border-slate-200 text-xs shadow-[4px_0_12px_rgba(0,0,0,0.02)]"><span class="px-2 py-0.5 rounded role-badge font-bold">${emp.logicalRole}</span></td>`;
+                emp.schedule.forEach(shift => {
+                    const cellClass = `cell-${shift}`;
+                    html += `<td class="px-2 py-2 text-center border-r border-slate-100 font-bold text-xs ${cellClass}">${shift}</td>`;
+                });
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+            renderDailyMatrix(rosterData, dates);
+        }
+
+        // --- UPDATED RENDER MATRIX FOR V9.12 ---
+        function renderDailyMatrix(rosterData, dates) {
+            const tfoot = document.getElementById('roster-footer');
+            tfoot.classList.remove('hidden'); tfoot.innerHTML = '';
+            const roles = Array.from(detectedRoles);
+            
+            // Styles for shifts
+            const styles = {
+                'A': { bg: 'bg-green-50', text: 'text-green-900', border: 'border-green-100', headerBg: 'bg-green-100' },
+                'B': { bg: 'bg-amber-50', text: 'text-amber-900', border: 'border-amber-100', headerBg: 'bg-amber-100' },
+                'C': { bg: 'bg-red-50', text: 'text-red-900', border: 'border-red-100', headerBg: 'bg-red-100' }
+            };
+
+            ['A', 'B', 'C'].forEach(shift => {
+                const tr = document.createElement('tr');
+                const s = styles[shift];
+                
+                // Sticky 1: Shift Name
+                let sticky1 = `<td class="sticky-col-1 ${s.bg} ${s.text} font-bold text-sm border-r border-slate-200 z-20 border-b border-slate-200 align-middle text-center shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                    Shift ${shift}
+                </td>`;
+
+                // Sticky 2: Legend / Labels
+                let legendHtml = `<div class="flex flex-col w-full text-[10px] font-medium text-slate-500">`;
+                
+                roles.forEach(role => {
+                    legendHtml += `
+                        <div class="flex items-center px-2 py-1.5 border-b ${s.border} bg-white/50 h-7">
+                            <span class="font-bold text-slate-700">${role}</span>&nbsp;Count
+                        </div>
+                        <div class="flex items-center px-2 py-1.5 border-b ${s.border} bg-white/30 h-7">
+                            <span class="font-bold text-slate-700">${role}</span>&nbsp;Avg EP
+                        </div>
+                    `;
+                });
+                // Average Row
+                legendHtml += `
+                    <div class="flex items-center px-2 py-1.5 bg-blue-50 text-blue-800 font-bold border-t border-blue-100 h-7">
+                        Shift Avg
+                    </div>
+                </div>`;
+
+                let sticky2 = `<td class="sticky-col-2 bg-slate-50 p-0 border-r border-slate-200 z-20 border-b border-slate-200 align-top shadow-[4px_0_5px_rgba(0,0,0,0.05)]">
+                    ${legendHtml}
+                </td>`;
+
+                // Data Cells
+                let dataCells = '';
+                dates.forEach((date, idx) => {
+                    let shiftTotalCount = 0;
+                    let shiftTotalEp = 0;
+                    
+                    let cellContent = `<div class="flex flex-col w-full text-[10px]">`;
+
+                    roles.forEach(role => {
+                        const workers = rosterData.filter(e => e.logicalRole === role && e.schedule[idx] === shift);
+                        const count = workers.length;
+                        const epSum = workers.reduce((sum, e) => sum + (Number(e.ep) || 0), 0);
+                        
+                        let avg = 0;
+                        if (count > 0) {
+                            shiftTotalCount += count;
+                            shiftTotalEp += epSum;
+                            avg = (epSum / count).toFixed(1);
+                        }
+
+                        // Logic for Red Glow
+                        const isLow = count > 0 && parseFloat(avg) < 2.5;
+                        const epClass = isLow ? "text-red-600 font-extrabold glow-red" : "text-slate-600";
+                        const countClass = count > 0 ? "text-slate-800 font-bold" : "text-slate-300";
+
+                        // Count Row
+                        cellContent += `
+                            <div class="flex items-center justify-center px-2 py-1.5 border-b border-slate-100 h-7 bg-white">
+                                <span class="${countClass}">${count || '-'}</span>
+                            </div>
+                        `;
+                        
+                        // EP Row
+                        cellContent += `
+                            <div class="flex items-center justify-center px-2 py-1.5 border-b border-slate-100 h-7 bg-slate-50/30">
+                                <span class="${epClass}">${count > 0 ? avg : '-'}</span>
+                            </div>
+                        `;
+                    });
+
+                    // Shift Avg Row
+                    let shiftAvg = '-';
+                    if (shiftTotalCount > 0) {
+                        shiftAvg = (shiftTotalEp / shiftTotalCount).toFixed(2);
+                    }
+                    
+                    cellContent += `
+                        <div class="flex items-center justify-center px-2 py-1.5 bg-blue-50/30 font-bold text-blue-700 h-7 border-t border-blue-100">
+                            ${shiftAvg}
+                        </div>
+                    </div>`;
+
+                    dataCells += `<td class="p-0 border-r border-slate-100 border-b border-slate-200 bg-white align-top hover:bg-slate-50 transition-colors">
+                        ${cellContent}
+                    </td>`;
+                });
+
+                tr.innerHTML = sticky1 + sticky2 + dataCells;
+                tfoot.appendChild(tr);
+            });
+        }
+
+        // --- EXPORT TO EXCEL (Preserves Formatting) ---
+        function exportToExcel() {
+            if (generatedRoster.length === 0) return alert("Generate a roster first!");
+            
+            const table = document.getElementById('roster-table');
+            const clone = table.cloneNode(true);
+            
+            // Helper: Convert classes to inline styles for Excel compatibility
+            function applyInlineStyles(element) {
+                // Base Styles
+                let styles = [];
+                
+                // Check if it's a structural element
+                const tag = element.tagName;
+                if (tag === 'TH' || tag === 'TD') {
+                    styles.push('border: 1px solid #e2e8f0');
+                    styles.push('padding: 8px');
+                    styles.push('text-align: center');
+                    styles.push('vertical-align: middle');
+                }
+
+                // --- 1. Core Shift Colors ---
+                if (element.classList.contains('cell-A')) styles.push('background-color: #dcfce7', 'color: #166534', 'border: 1px solid #bbf7d0');
+                if (element.classList.contains('cell-B')) styles.push('background-color: #fef9c3', 'color: #854d0e', 'border: 1px solid #fde047');
+                if (element.classList.contains('cell-C')) styles.push('background-color: #fee2e2', 'color: #991b1b', 'border: 1px solid #fecaca');
+                if (element.classList.contains('cell-WO')) styles.push('background-color: #f1f5f9', 'color: #64748b', 'font-style: italic');
+
+                // --- 2. Tailwind Background Maps ---
+                if (element.classList.contains('bg-green-50')) styles.push('background-color: #f0fdf4');
+                if (element.classList.contains('bg-green-100')) styles.push('background-color: #dcfce7');
+                if (element.classList.contains('bg-amber-50')) styles.push('background-color: #fffbeb');
+                if (element.classList.contains('bg-amber-100')) styles.push('background-color: #fef3c7');
+                if (element.classList.contains('bg-red-50')) styles.push('background-color: #fef2f2');
+                if (element.classList.contains('bg-red-100')) styles.push('background-color: #fee2e2');
+                if (element.classList.contains('bg-blue-50')) styles.push('background-color: #eff6ff');
+                if (element.classList.contains('bg-white')) styles.push('background-color: #ffffff');
+                if (element.classList.contains('bg-slate-50')) styles.push('background-color: #f8fafc');
+
+                // --- 3. Tailwind Text Maps ---
+                if (element.classList.contains('text-green-900')) styles.push('color: #14532d');
+                if (element.classList.contains('text-amber-900')) styles.push('color: #78350f');
+                if (element.classList.contains('text-red-900')) styles.push('color: #7f1d1d');
+                if (element.classList.contains('text-red-600')) styles.push('color: #dc2626');
+                if (element.classList.contains('text-blue-800')) styles.push('color: #1e40af');
+                if (element.classList.contains('text-blue-700')) styles.push('color: #1d4ed8');
+                if (element.classList.contains('text-slate-700')) styles.push('color: #334155');
+                if (element.classList.contains('text-slate-600')) styles.push('color: #475569');
+                if (element.classList.contains('text-slate-500')) styles.push('color: #64748b');
+                if (element.classList.contains('text-slate-400')) styles.push('color: #94a3b8');
+
+                // --- 4. Typography & Misc ---
+                if (element.classList.contains('font-bold')) styles.push('font-weight: bold');
+                if (element.classList.contains('font-medium')) styles.push('font-weight: 500');
+                if (element.classList.contains('text-xs')) styles.push('font-size: 10px');
+                if (element.classList.contains('text-sm')) styles.push('font-size: 12px');
+                
+                // Glow effect override
+                if (element.classList.contains('glow-red')) styles.push('color: #dc2626', 'font-weight: 800');
+
+                // Reset Sticky for Excel (Static positioning)
+                if (element.classList.contains('sticky-col-1') || element.classList.contains('sticky-col-2')) {
+                    styles.push('position: static'); 
+                }
+
+                // Apply existing styles if any (from inline styles in HTML) + calculated styles
+                const currentStyle = element.getAttribute('style') || '';
+                element.setAttribute('style', currentStyle + '; ' + styles.join('; '));
+
+                // Recurse to children
+                Array.from(element.children).forEach(child => applyInlineStyles(child));
+            }
+
+            // Execute style inlining
+            applyInlineStyles(clone);
+
+            const html = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="UTF-8">
+                </head>
+                <body>${clone.outerHTML}</body>
+                </html>
+            `;
+
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "Roster_Export.xls";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
