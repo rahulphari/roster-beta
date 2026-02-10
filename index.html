@@ -1,4 +1,4 @@
-content = r'''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -10,7 +10,7 @@ content = r'''<!DOCTYPE html>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
+
         body { font-family: 'Inter', sans-serif; }
 
         /* Custom Scrollbar */
@@ -18,14 +18,14 @@ content = r'''<!DOCTYPE html>
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
+
         /* Grid Colors */
         .cell-A { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .cell-B { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
         .cell-C { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .cell-WO { background-color: #f1f5f9; color: #64748b; font-style: italic; border: 1px solid #e2e8f0; }
         .cell-L { background-color: #ede9fe; color: #6d28d9; font-style: italic; border: 1px solid #ddd6fe; }
-        
+
         /* UPDATED: Strict Sticky Column Styles */
         .sticky-col-1 { 
             position: sticky; 
@@ -46,7 +46,7 @@ content = r'''<!DOCTYPE html>
             box-shadow: 4px 0 5px -2px rgba(0,0,0,0.05); /* Shadow separator */
             background-color: inherit;
         } 
-        
+
         /* Ensure table header z-index is higher to float over body content */
         thead .sticky-col-1, thead .sticky-col-2 { z-index: 50; }
         tfoot .sticky-col-1, tfoot .sticky-col-2 { z-index: 50; }
@@ -87,7 +87,7 @@ content = r'''<!DOCTYPE html>
                 <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">🦅 Black Falcons (ROKA)</p>
             </div>
         </div>
-        
+
         <nav class="flex-1 px-4 space-y-1 mt-4">
             <button onclick="switchTab('dashboard')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-50 flex items-center gap-3 transition-all duration-200 group" id="btn-dashboard">
                 <i data-lucide="layout-grid" class="w-5 h-5 group-hover:text-blue-500 transition-colors"></i> 
@@ -134,7 +134,7 @@ content = r'''<!DOCTYPE html>
 
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col overflow-hidden relative">
-        
+
         <!-- HEADER -->
         <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex justify-between items-center z-10">
             <div>
@@ -156,7 +156,7 @@ content = r'''<!DOCTYPE html>
 
             <!-- ================= VIEW: DASHBOARD ================= -->
             <div id="view-dashboard" class="view-section space-y-8 animate-fade-in">
-                
+
                 <!-- Status Bar -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Config Snapshot -->
@@ -178,7 +178,7 @@ content = r'''<!DOCTYPE html>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Legend -->
                     <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-center shadow-sm">
                         <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-3">Shift Legend</p>
@@ -245,7 +245,7 @@ content = r'''<!DOCTYPE html>
                         </h3>
                         <span id="roster-status" class="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-slate-200 text-slate-600 font-bold">Waiting for Input</span>
                     </div>
-                    
+
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left border-collapse" id="roster-table">
                             <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200" id="roster-thead">
@@ -305,11 +305,11 @@ content = r'''<!DOCTYPE html>
 
             <!-- ================= VIEW: DATA HUB (Merged Import + Team) ================= -->
             <div id="view-data" class="view-section space-y-8 hidden">
-                
+
                 <!-- 1. Upload Section -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center relative overflow-hidden group">
                     <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    
+
                     <div class="relative z-10">
                         <div class="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300">
                             <i data-lucide="upload-cloud" class="w-10 h-10 text-blue-600"></i>
@@ -485,7 +485,7 @@ content = r'''<!DOCTYPE html>
                                     + Add Role
                                 </button>
                             </div>
-                            
+
                             <div class="overflow-x-auto rounded-lg border border-slate-100">
                                 <table class="w-full text-sm text-left">
                                     <thead>
@@ -519,7 +519,7 @@ content = r'''<!DOCTYPE html>
     <div id="gen-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4 animate-scale-in relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-            
+
             <div class="flex items-center gap-4 mb-6">
                 <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                     <i data-lucide="sparkles" class="w-5 h-5"></i>
@@ -529,7 +529,7 @@ content = r'''<!DOCTYPE html>
                     <p class="text-xs text-slate-500">Solver-based engine with compliance scoring</p>
                 </div>
             </div>
-            
+
             <div class="bg-slate-50 p-5 rounded-xl mb-6 border border-slate-200 text-sm space-y-2">
                 <div class="flex justify-between">
                     <span class="text-slate-500">History End:</span>
@@ -600,7 +600,7 @@ content = r'''<!DOCTYPE html>
         let parseWarnings = [];
         let nameRoleMap = new Map();
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        
+
         let generatedRoster = [];
         let dates = [];
         let activeConfig = null; // Store active policy
@@ -622,7 +622,7 @@ content = r'''<!DOCTYPE html>
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             const btn = document.getElementById(`btn-${tabId}`);
             if(btn) btn.classList.add('active');
-            
+
             // 3. Operational Overview to Planning, Perfected
             const headers = { 'dashboard': { t: 'Dashboard', s: 'Planning, Perfected' }, 'data': { t: 'Data Hub', s: 'Import & Analysis' } };
             if(headers[tabId]) { document.getElementById('header-title').textContent = headers[tabId].t; document.getElementById('header-subtitle').textContent = headers[tabId].s; }
@@ -635,7 +635,7 @@ content = r'''<!DOCTYPE html>
         function renderConfigLimits() {
             const tbody = document.getElementById('config-limits-body');
             tbody.innerHTML = '';
-            
+
             if (detectedRoles.size === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400 italic">No roles detected yet. Import data first.</td></tr>`;
                 return;
@@ -653,10 +653,10 @@ content = r'''<!DOCTYPE html>
                 if (count > 0) {
                     const maxWO = Math.ceil(count / 7);
                     const working = count - maxWO;
-                    
+
                     let baseMin = Math.floor(working / 3);
                     if (working % 3 === 0) baseMin = Math.max(0, baseMin - 1); 
-                    
+
                     autoMin = Math.max(1, baseMin); 
                     autoMax = Math.max(autoMin + 1, working - (2 * autoMin));
 
@@ -739,10 +739,10 @@ content = r'''<!DOCTYPE html>
             if(!activeConfig) activeConfig = getConfig();
             document.getElementById('snap-min').textContent = activeConfig.continuity.minDays;
             document.getElementById('snap-max').textContent = activeConfig.continuity.maxDays;
-            
+
             const matrixContainer = document.getElementById('snap-matrix-list');
             matrixContainer.innerHTML = '';
-            
+
             Object.keys(activeConfig.staffingMatrix).forEach(role => {
                 const l = activeConfig.staffingMatrix[role];
                 const item = document.createElement('div');
@@ -758,13 +758,13 @@ content = r'''<!DOCTYPE html>
             if (files.length === 0) return;
             document.getElementById('upload-status').textContent = `Processing...`;
             document.getElementById('upload-status').className = "text-xs font-medium text-blue-500 mt-6 animate-pulse";
-            
+
             employees = []; consolidatedHistory = {}; detectedRoles.clear(); parseWarnings = []; nameRoleMap = new Map();
             let allDatesSet = new Set();
             for (const file of files) await processFile(file, allDatesSet);
             historicalDates = Array.from(allDatesSet).sort((a,b) => new Date(a) - new Date(b));
             analyzeHistory();
-            
+
             document.getElementById('upload-status').textContent = `Loaded ${employees.length} records.`;
             document.getElementById('upload-status').className = "text-xs font-medium text-green-600 mt-6";
 
@@ -772,7 +772,7 @@ content = r'''<!DOCTYPE html>
             document.getElementById('team-card').classList.remove('hidden');
             document.getElementById('btn-view-history').classList.remove('hidden');
             renderParseSummary();
-            
+
             renderConfigLimits();
             renderTeamTable();
             saveConfig(); // Auto-save default config based on new roles
@@ -884,14 +884,14 @@ content = r'''<!DOCTYPE html>
                 let stats = { A:0, B:0, C:0, L:0, WO:0 }; let lastShift = "A"; let streak = 0; let daysSinceWO = 0; let totalLeaves = 0; let woCounts = [0,0,0,0,0,0,0]; 
                 Object.entries(hist).forEach(([dateStr, s]) => { if (s === 'A') stats.A++; if (s === 'B') stats.B++; if (s === 'C') stats.C++; if (s === 'L') totalLeaves++; if (s === 'WO') { stats.WO++; woCounts[getDayFromDateStr(dateStr)]++; } });
                 let maxWO = -1; let prefWO = 0; woCounts.forEach((c, i) => { if (c > maxWO) { maxWO = c; prefWO = i; } });
-                
+
                 // Track previous work block length
                 let lastWOIndex = -1;
                 for (let i = sortedDates.length - 1; i >= 0; i--) {
                     const s = hist[sortedDates[i]];
                     if (s === 'WO' || s === 'L') { lastWOIndex = i; break; }
                 }
-                
+
                 let prevBlockLength = 6;
                 if (lastWOIndex !== -1) {
                     let prevWOIndex = -1;
@@ -966,7 +966,7 @@ content = r'''<!DOCTYPE html>
             document.getElementById('roster-status').className = "text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold";
             document.getElementById('roster-title').innerHTML = `<i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Past Roster Data`;
             violationMap = {};
-            
+
             // Render using the main grid function but with historical data
             const hDates = historicalDates.map(d => new Date(d));
             const header = document.getElementById('roster-header');
@@ -984,7 +984,7 @@ content = r'''<!DOCTYPE html>
                 tr.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors";
                 let html = `<td class="px-6 py-3 font-medium sticky-col-1 bg-white border-r border-slate-200 text-slate-700 text-sm shadow-[4px_0_12px_rgba(0,0,0,0.02)]">${emp.name}</td>
                             <td class="px-4 py-3 sticky-col-2 bg-white border-r border-slate-200 text-xs shadow-[4px_0_12px_rgba(0,0,0,0.02)]"><span class="px-2 py-0.5 rounded role-badge font-bold">${emp.desg}</span></td>`;
-                
+
                 historicalDates.forEach(d => {
                     const val = consolidatedHistory[emp.id]?.[d] || '-';
                     const cellClass = `cell-${val}`;
@@ -993,7 +993,7 @@ content = r'''<!DOCTYPE html>
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
             });
-            
+
             // Hide footer for history view
             document.getElementById('roster-footer').classList.add('hidden');
         }
@@ -1002,22 +1002,22 @@ content = r'''<!DOCTYPE html>
         function openGenerateModal() {
             const modal = document.getElementById('gen-modal');
             if (!modal) { console.error("Gen Modal not found"); return; } // Safety
-            
+
             let maxDateStr = historicalDates.length > 0 ? historicalDates[historicalDates.length - 1] : new Date().toISOString().split('T')[0];
-            
+
             const histDateEl = document.getElementById('modal-hist-date');
             if (histDateEl) histDateEl.textContent = maxDateStr;
-            
+
             let nextDay = new Date(maxDateStr); nextDay.setDate(nextDay.getDate() + 1);
-            
+
             const startDateEl = document.getElementById('modal-start-date');
             if (startDateEl) startDateEl.textContent = nextDay.toISOString().split('T')[0];
-            
+
             modal.classList.remove('hidden');
         }
         function closeGenerateModal() { document.getElementById('gen-modal').classList.add('hidden'); }
         function setDuration(d) { document.getElementById('gen-duration').value = d; }
-        
+
         function runGeneration() {
             const duration = Number(document.getElementById('gen-duration').value);
             const startStr = document.getElementById('modal-start-date').textContent;
@@ -1153,7 +1153,7 @@ content = r'''<!DOCTYPE html>
                         for(let i=0; i<needed && i<candidates.length; i++) {
                             const cand = candidates[i]; 
                             if (cand.daysSinceWO === 0 && cand._tempLastBlock >= 6) continue;
-                            
+
                             // V9.9 FIX: C-Shift workers on WO cannot be pulled to A/B immediately.
                             if (cand.currentShift === 'C' && shift !== 'C') continue;
 
@@ -1162,14 +1162,14 @@ content = r'''<!DOCTYPE html>
                             } else {
                                 cand.daysSinceWO++; 
                             }
-                            
+
                             if (cand.currentShift === shift) {
                                 cand.currentStreak++; 
                             } else {
                                 cand.currentShift = shift; 
                                 cand.currentStreak = 1; 
                             }
-                            
+
                             cand.schedule[dayIdx] = shift; 
                             cand.historyStats[shift]++; 
                         }
@@ -1177,7 +1177,7 @@ content = r'''<!DOCTYPE html>
                     if (maxReq !== null && count > maxReq) {
                         const excess = count - maxReq; 
                         working.sort((a,b) => b.historyStats[shift] - a.historyStats[shift]);
-                        
+
                         for(let i=0; i<excess; i++) {
                             const w = working[i]; if(w.daysSinceWO > 5) { 
                                 w.schedule[dayIdx] = "WO"; 
@@ -1205,7 +1205,7 @@ content = r'''<!DOCTYPE html>
                         const deficit = minReq - targetWorkers.length;
                         let swapped = 0;
                         const potentialDonors = shifts.filter(s => s !== targetShift && s !== 'C'); 
-                        
+
                         potentialDonors.sort((a, b) => {
                              const countA = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === a).length;
                              const countB = rosterData.filter(e => e.logicalRole === role && e.schedule[dayIdx] === b).length;
@@ -1233,7 +1233,7 @@ content = r'''<!DOCTYPE html>
 
                                 cand.currentShift = targetShift; 
                                 cand.currentStreak = 1;
-                                
+
                                 swapped++; availableToTake--;
                             }
                         }
@@ -1278,7 +1278,7 @@ content = r'''<!DOCTYPE html>
             const tfoot = document.getElementById('roster-footer');
             tfoot.classList.remove('hidden'); tfoot.innerHTML = '';
             const roles = Array.from(detectedRoles);
-            
+
             const shifts = activeConfig?.shiftMode === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
             // Styles for shifts
             const styles = {
@@ -1290,7 +1290,7 @@ content = r'''<!DOCTYPE html>
             shifts.forEach(shift => {
                 const tr = document.createElement('tr');
                 const s = styles[shift];
-                
+
                 // Sticky 1: Shift Name
                 let sticky1 = `<td class="sticky-col-1 ${s.bg} ${s.text} font-bold text-sm border-r border-slate-200 z-20 border-b border-slate-200 align-middle text-center shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                     Shift ${shift}
@@ -1298,7 +1298,7 @@ content = r'''<!DOCTYPE html>
 
                 // Sticky 2: Legend / Labels
                 let legendHtml = `<div class="flex flex-col w-full text-[10px] font-medium text-slate-500">`;
-                
+
                 roles.forEach(role => {
                     legendHtml += `
                         <div class="flex items-center px-2 py-1.5 border-b ${s.border} bg-white/50 h-7">
@@ -1325,14 +1325,14 @@ content = r'''<!DOCTYPE html>
                 dates.forEach((date, idx) => {
                     let shiftTotalCount = 0;
                     let shiftTotalEp = 0;
-                    
+
                     let cellContent = `<div class="flex flex-col w-full text-[10px]">`;
 
                     roles.forEach(role => {
                         const workers = rosterData.filter(e => e.logicalRole === role && e.schedule[idx] === shift);
                         const count = workers.length;
                         const epSum = workers.reduce((sum, e) => sum + (Number(e.ep) || 0), 0);
-                        
+
                         let avg = 0;
                         if (count > 0) {
                             shiftTotalCount += count;
@@ -1351,7 +1351,7 @@ content = r'''<!DOCTYPE html>
                                 <span class="${countClass}">${count || '-'}</span>
                             </div>
                         `;
-                        
+
                         // EP Row
                         cellContent += `
                             <div class="flex items-center justify-center px-2 py-1.5 border-b border-slate-100 h-7 bg-slate-50/30">
@@ -1365,7 +1365,7 @@ content = r'''<!DOCTYPE html>
                     if (shiftTotalCount > 0) {
                         shiftAvg = (shiftTotalEp / shiftTotalCount).toFixed(2);
                     }
-                    
+
                     cellContent += `
                         <div class="flex items-center justify-center px-2 py-1.5 bg-blue-50/30 font-bold text-blue-700 h-7 border-t border-blue-100">
                             ${shiftAvg}
@@ -1385,15 +1385,15 @@ content = r'''<!DOCTYPE html>
         // --- EXPORT TO EXCEL (Preserves Formatting) ---
         function exportToExcel() {
             if (generatedRoster.length === 0) return alert("Generate a roster first!");
-            
+
             const table = document.getElementById('roster-table');
             const clone = table.cloneNode(true);
-            
+
             // Helper: Convert classes to inline styles for Excel compatibility
             function applyInlineStyles(element) {
                 // Base Styles
                 let styles = [];
-                
+
                 // Check if it's a structural element
                 const tag = element.tagName;
                 if (tag === 'TH' || tag === 'TD') {
@@ -1437,7 +1437,7 @@ content = r'''<!DOCTYPE html>
                 if (element.classList.contains('font-medium')) styles.push('font-weight: 500');
                 if (element.classList.contains('text-xs')) styles.push('font-size: 10px');
                 if (element.classList.contains('text-sm')) styles.push('font-size: 12px');
-                
+
                 // Glow effect override
                 if (element.classList.contains('glow-red')) styles.push('color: #dc2626', 'font-weight: 800');
 
@@ -1480,7 +1480,3 @@ content = r'''<!DOCTYPE html>
     </script>
 </body>
 </html>
-'''
-open('/mnt/data/index.html','w',encoding='utf-8').write(content)
-len(content)
-
