@@ -1,107 +1,28 @@
 // solverEngine/index.js
+// Heuristic-first roster generation (no HiGHS / no MILP solver).
 (function () {
-  let worker = null;
-  let requestCounter = 0;
-
-  function getWorker() {
-    if (worker) return worker;
-    worker = new Worker('./solverEngine/solverWorker.js');
-
-    // Global event hook for UI (optional)
-    worker.addEventListener('message', (event) => {
-      const data = event.data || {};
-      if (data.type === 'status' && window.__onSolverStatus) window.__onSolverStatus(data);
-      if (data.type === 'heartbeat' && window.__onSolverHeartbeat) window.__onSolverHeartbeat(data);
-    });
-
-    return worker;
-  }
-
-  /**
-   * @param {string} model
-   * @param {object} options
-   * @param {object} extras
-   * @param {(evt:any)=>void} extras.onEvent - receives status/heartbeat + final result event
-   * @param {number} extras.timeoutMs
-   */
-  function solveWithWorker(model, options, extras = {}) {
-    const { onEvent, timeoutMs = 30000 } = extras;
-
-    return new Promise((resolve) => {
-      const w = getWorker();
-      const requestId = `${Date.now()}_${requestCounter++}`;
-
-      let timeout = null;
-      if (timeoutMs) {
-        timeout = setTimeout(() => {
-          try {
-            onEvent?.({ type: 'client_timeout', requestId, ts: Date.now() });
-          } catch {}
-          resolve({ status: 'error', message: `Solver timed out after ${Math.round(timeoutMs / 1000)}s` });
-        }, timeoutMs);
-      }
-
-      const handler = (event) => {
-        const data = event.data || {};
-
-        // Forward worker status to caller (UI)
-        if (data.type === 'status' || data.type === 'heartbeat') {
-          try { onEvent?.(data); } catch {}
-          return;
-        }
-
-        if (data.requestId !== requestId) return;
-
-        w.removeEventListener('message', handler);
-        if (timeout) clearTimeout(timeout);
-
-        try { onEvent?.({ type: 'final', requestId, ts: Date.now(), data }); } catch {}
-        resolve(data.result);
-      };
-
-      w.addEventListener('message', handler);
-      w.postMessage({ model, options, requestId });
-    });
-  }
-
-  // ---- everything below here is your existing logic (with improved fallback) ----
-
   function pickBestDraft(drafts) {
     return drafts.reduce((best, draft) => {
       if (!best) return draft;
       const hardA = draft.validator?.hardViolations?.length || 0;
       const hardB = best.validator?.hardViolations?.length || 0;
       if (hardA !== hardB) return hardA < hardB ? draft : best;
-      if (draft.scores.satisfactionScore !== best.scores.satisfactionScore) {
-        return draft.scores.satisfactionScore > best.scores.satisfactionScore ? draft : best;
+
+      const staffA = draft.validator?.staffingViolations?.length || 0;
+      const staffB = best.validator?.staffingViolations?.length || 0;
+      if (staffA !== staffB) return staffA < staffB ? draft : best;
+
+      if (draft.scores?.satisfactionScore !== undefined && best.scores?.satisfactionScore !== undefined) {
+        if (draft.scores.satisfactionScore !== best.scores.satisfactionScore) {
+          return draft.scores.satisfactionScore > best.scores.satisfactionScore ? draft : best;
+        }
       }
       return draft;
     }, null);
   }
 
-  function normalizeRosterSolution(solution, employees, dates, shifts) {
-    const roster = employees.map((emp) => ({ ...emp, schedule: [] }));
-    if (!solution?.col_value || !solution?.col_name) {
-      return roster;
-    }
-    const assignments = {};
-    solution.col_name.forEach((name, idx) => {
-      if (!name.startsWith('x_')) return;
-      if (solution.col_value[idx] < 0.5) return;
-      const [, empId, dayIdx, shift] = name.split('_');
-      assignments[`${empId}_${dayIdx}`] = shift;
-    });
-    roster.forEach((emp) => {
-      for (let d = 0; d < dates.length; d += 1) {
-        const shift = assignments[`${emp.id}_${d}`] || 'WO';
-        emp.schedule.push(shift);
-      }
-    });
-    return roster;
-  }
-
   // -----------------------------
-  // Heuristic roster generator (no solver required)
+  // Heuristic roster generator (NO CHANGES to internal logic vs your working heuristic)
   // -----------------------------
 
   function dayNameToIndex(v) {
@@ -121,7 +42,6 @@
     return map[s] ?? null;
   }
 
-  // Try to read a preferred WO field from whatever your parser uses.
   function getPreferredWOIndex(emp) {
     const candidate =
       emp.prefWO ??
@@ -136,8 +56,7 @@
     return dayNameToIndex(candidate);
   }
 
-  function buildWeeklyWOCalendar(dates, empIndex, preferredDowIdx /*0..6 or null*/) {
-    // Enforce exactly one WO per 7-day window.
+  function buildWeeklyWOCalendar(dates, empIndex, preferredDowIdx) {
     const woDays = new Set();
     for (let start = 0; start < dates.length; start += 7) {
       const end = Math.min(start + 7, dates.length);
@@ -153,7 +72,7 @@
   }
 
   function isForbiddenTransition(prev, next, config) {
-    if (prev === 'C' && (next === 'A' || next === 'B')) return true; // C reset rule
+    if (prev === 'C' && (next === 'A' || next === 'B')) return true;
     if (!config.constraintsToggles.allowLastResortTransitions && prev === 'B' && next === 'A') return true;
     return false;
   }
@@ -169,21 +88,17 @@
     return Number.isFinite(v) ? v : 0;
   }
 
-  // Replaces your old fallbackGenerate() and buildWOCalendar()
   function fallbackGenerate({ employees, dates, config, attempt }) {
     const shifts = getShifts(config);
 
-    // continuity targets for this attempt
     const minDays = attempt.minDays ?? config.continuity.minDays;
     const maxDays = attempt.maxDays ?? config.continuity.maxDays;
 
-    // Clone employees into roster with schedules
     const roster = employees.map((e) => ({
       ...e,
       schedule: Array(dates.length).fill(null),
     }));
 
-    // 1) Place WO (and preserve Leaves if present via common patterns)
     roster.forEach((emp, idx) => {
       const prefWO = getPreferredWOIndex(emp);
       const woDays = buildWeeklyWOCalendar(dates, idx, prefWO);
@@ -193,7 +108,7 @@
         const isLeave =
           (Array.isArray(leaveList) && leaveList.includes(d)) ||
           (emp.leaveSet instanceof Set && emp.leaveSet.has(d)) ||
-          (emp.leaveMap && emp.leaveMap[dates[d]]); // supports leaveMap keyed by dateStr if caller passes that
+          (emp.leaveMap && emp.leaveMap[dates[d]]);
 
         if (isLeave) {
           emp.schedule[d] = 'L';
@@ -204,9 +119,8 @@
       }
     });
 
-    // 2) Greedy staffing fill per day per role:
     const roles = Object.keys(config.staffingMatrix || {});
-    const state = new Map(); // emp.id -> {currentShift, streak}
+    const state = new Map();
 
     roster.forEach((emp, idx) => {
       const last = emp.lastShift && shifts.includes(emp.lastShift) ? emp.lastShift : shifts[idx % shifts.length];
@@ -237,16 +151,9 @@
 
       let penalty = 0;
 
-      // keep same shift until minDays reached
       if (shift !== current && streak < minDays) penalty += 50;
-
-      // avoid exceeding maxDays if possible
       if (shift === current && streak >= maxDays) penalty += 40;
-
-      // small penalty for changing shift at all
       if (shift !== current) penalty += 5;
-
-      // tiny preference to lastShift on day0
       if (dayIdx === 0 && emp.lastShift && shift !== emp.lastShift) penalty += 2;
 
       return penalty;
@@ -267,12 +174,12 @@
     }
 
     for (let d = 0; d < dates.length; d += 1) {
-      // counts per role/shift today
       const counts = {};
       for (const role of roles) {
         counts[role] = {};
         for (const s of shifts) counts[role][s] = 0;
       }
+
       roster.forEach((e) => {
         const s = e.schedule[d];
         if (!s || s === 'WO' || s === 'L') return;
@@ -281,7 +188,6 @@
         counts[e.role][s] += 1;
       });
 
-      // satisfy mins first
       for (const role of roles) {
         const roleEmps = roster.filter((e) => e.role === role);
 
@@ -306,7 +212,6 @@
           }
         }
 
-        // assign remaining unassigned for this role -> balance across shifts
         for (const emp of roleEmps) {
           if (emp.schedule[d] !== null) continue;
 
@@ -324,7 +229,6 @@
       roster.forEach((emp) => updateContinuityAfterDay(emp, d));
     }
 
-    // 3) Small repair pass: if a shift change happens before minDays, try swap to continue prev shift
     function trySwapSameRole(dayIdx, role, fromEmp, toShift) {
       const partner = roster.find((e) =>
         e.role === role &&
@@ -364,7 +268,6 @@
       }
     }
 
-    // Any still-null -> WO
     roster.forEach((e) => {
       for (let d = 0; d < dates.length; d += 1) {
         if (e.schedule[d] === null) e.schedule[d] = 'WO';
@@ -374,6 +277,9 @@
     return roster;
   }
 
+  // -----------------------------
+  // Validation (unchanged)
+  // -----------------------------
   function validateRoster({ roster, dates, config }) {
     const shifts = config.shiftMode === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
     const hardViolations = [];
@@ -443,36 +349,58 @@
     return { hardViolations, staffingViolations };
   }
 
-  async function generateRoster({ employees, dates, config, onProgress, onSolverEvent }) {
+  function computeDerivedScores({ validator, dates }) {
+    const totalDays = Math.max(1, dates.length);
+    const hard = validator?.hardViolations?.length || 0;
+    const staffing = validator?.staffingViolations?.length || 0;
+
+    const rules = Math.max(0, Math.min(100, Math.round(100 * (1 - (hard / (totalDays + 1))))));
+    const config = Math.max(0, Math.min(100, Math.round(100 * (1 - (staffing / (totalDays + 1))))));
+
+    return {
+      rulesCompliance: rules,
+      configCompliance: config,
+      satisfactionScore: 50,
+      fairnessScore: 50,
+    };
+  }
+
+  async function generateRoster({ employees, dates, config, onProgress }) {
     const attempts = window.RelaxationPlanner.buildAttempts(config);
     const drafts = [];
 
     for (const attempt of attempts) {
       if (onProgress) onProgress(attempt.label);
 
-      const model = window.ModelBuilder.buildModel({ employees, dates, config, attempt });
-
-      const result = await solveWithWorker(
-        model.lp,
-        { timeLimitSec: config.timeLimitSec || 5 },
-        { onEvent: onSolverEvent, timeoutMs: (config.workerTimeoutMs || 30000) }
-      );
-
-      let roster;
-      let status = result.status;
-
-      if (status === 'ok') {
-        roster = normalizeRosterSolution(result.solution, employees, dates, model.shifts);
-      } else {
-        roster = fallbackGenerate({ employees, dates, config, attempt });
-        status = 'fallback';
-      }
+      const roster = fallbackGenerate({ employees, dates, config, attempt });
 
       const validator = validateRoster({ roster, dates, config });
-      const scored = window.Scorer.scoreRoster({ roster, employees, dates, config, validatorResult: validator });
-      const explained = window.Explainer.explainRoster({ roster, employees, dates, config, validatorResult: validator });
 
-      drafts.push({ attempt, roster, status, validator, scores: scored.scores, stats: scored.stats, explanation: explained });
+      let scored = null;
+      try {
+        scored = window.Scorer?.scoreRoster?.({ roster, employees, dates, config, validatorResult: validator }) || null;
+      } catch {
+        scored = null;
+      }
+
+      const scores = (scored && scored.scores) ? scored.scores : computeDerivedScores({ validator, dates });
+
+      let explained = null;
+      try {
+        explained = window.Explainer?.explainRoster?.({ roster, employees, dates, config, validatorResult: validator }) || null;
+      } catch {
+        explained = null;
+      }
+
+      drafts.push({
+        attempt,
+        roster,
+        status: 'heuristic',
+        validator,
+        scores,
+        stats: scored?.stats || {},
+        explanation: explained || {},
+      });
     }
 
     const best = pickBestDraft(drafts);
