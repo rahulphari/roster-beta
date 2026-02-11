@@ -161,7 +161,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                     <!-- Planning Console (Policy + Legend + Drafts) -->
-                    <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm relative overflow-hidden">
+                    <div class="lg:col-span-3 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm relative overflow-hidden">
                         <div class="flex items-start gap-4">
                             <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
                                 <i data-lucide="shield-check" class="w-5 h-5"></i>
@@ -234,33 +234,7 @@
                         </div>
                     </div>
 
-                    <!-- Compliance & Satisfaction -->
-                    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="font-bold text-slate-700 flex items-center gap-2">
-                                <i data-lucide="gauge" class="w-4 h-4 text-slate-400"></i> Compliance & Satisfaction
-                            </h3>
-                            <span id="draft-status-pill" class="text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-slate-100 text-slate-500 font-bold">Awaiting Draft</span>
-                        </div>
-                        <div class="grid grid-cols-2 md:grid-cols-2 gap-4" id="compliance-metrics">
-                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                <p class="text-[10px] uppercase text-slate-400 font-bold">Rules</p>
-                                <p class="text-xl font-bold text-slate-700" id="metric-rules">--</p>
-                            </div>
-                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                <p class="text-[10px] uppercase text-slate-400 font-bold">Config</p>
-                                <p class="text-xl font-bold text-slate-700" id="metric-config">--</p>
-                            </div>
-                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                <p class="text-[10px] uppercase text-slate-400 font-bold">Satisfaction</p>
-                                <p class="text-xl font-bold text-slate-700" id="metric-satisfaction">--</p>
-                            </div>
-                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                <p class="text-[10px] uppercase text-slate-400 font-bold">Fairness</p>
-                                <p class="text-xl font-bold text-slate-700" id="metric-fairness">--</p>
-                            </div>
-                        </div>
-                    </div>
+                    
 
                 </div>
 
@@ -337,6 +311,101 @@
                         </table>
                     </div>
                 </div>
+
+
+<div id="view-data" class="view-section space-y-8 hidden">
+
+                <!-- 1. Upload Section -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+                    <div class="relative z-10">
+                        <div class="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                            <i data-lucide="upload-cloud" class="w-10 h-10 text-blue-600"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Import Historical Roster</h3>
+                        <p class="text-slate-500 mb-8 text-sm max-w-lg mx-auto leading-relaxed">
+                            Upload Excel (.xlsx) files containing past attendance. We'll automatically detect staff, roles, and build continuity context. Multiple tabs supported.
+                        </p>
+                        <div class="flex gap-4 justify-center">
+                            <label class="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3.5 rounded-xl cursor-pointer transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-3 font-medium">
+                                <i data-lucide="file-plus" class="w-5 h-5"></i> Select Files
+                                <input type="file" id="fileInput" multiple accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileUpload(this)">
+                            </label>
+                            <button onclick="viewHistoricalRoster()" id="btn-view-history" class="hidden bg-white border border-slate-300 text-slate-700 px-6 py-3.5 rounded-xl hover:bg-slate-50 font-medium transition-all shadow-sm flex items-center gap-2">
+                                <i data-lucide="history" class="w-5 h-5"></i> View Past Roster
+                            </button>
+                        </div>
+                        <p class="text-xs font-medium text-slate-400 mt-6" id="upload-status">Supported: .xlsx, .csv</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hidden" id="parse-summary">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i data-lucide="file-check" class="w-5 h-5 text-emerald-500"></i>
+                        <h3 class="font-bold text-slate-700">Parse Summary</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <p class="text-[10px] uppercase text-slate-400 font-bold">Employees</p>
+                            <p class="text-lg font-bold text-slate-700" id="summary-employees">0</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <p class="text-[10px] uppercase text-slate-400 font-bold">Date Range</p>
+                            <p class="text-sm font-bold text-slate-700" id="summary-dates">-</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <p class="text-[10px] uppercase text-slate-400 font-bold">Roles</p>
+                            <p class="text-sm font-bold text-slate-700" id="summary-roles">-</p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-[10px] uppercase text-slate-400 font-bold mb-2">Warnings</p>
+                        <ul id="summary-warnings" class="text-xs text-slate-600 space-y-1">
+                            <li class="text-slate-400">No warnings.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 2. Team Analysis Table (Revealed after upload) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden" id="team-card">
+                    <div class="p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center bg-white gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-700 flex items-center gap-2">
+                                <i data-lucide="users" class="w-5 h-5 text-blue-500"></i> Team Intelligence
+                            </h2>
+                            <p class="text-sm text-slate-500 mt-1">Manage team stats and preferred week offs.</p>
+                        </div>
+                        <div class="relative w-full md:w-64">
+                            <input type="text" id="team-search" placeholder="Search people or roles..." onkeyup="filterTeamTable()" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left" id="team-table-el">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200 font-semibold">
+                                <tr>
+                                    <th class="px-6 py-3">Name</th>
+                                    <th class="px-4 py-3">Role</th>
+                                    <th class="px-4 py-3 text-center w-24">EP (Edit)</th>
+                                    <th class="px-4 py-3 text-center">Last Shift</th>
+                                    <th class="px-4 py-3 text-center">Streak</th>
+                                    <th class="px-4 py-3 text-center">Days WO</th>
+                                    <th class="px-4 py-3 text-center bg-indigo-50/50 text-indigo-900 border-x border-indigo-100">Pref W/O</th>
+                                    <th class="px-4 py-3 text-center" title="Days in Shift A">Hist A</th>
+                                    <th class="px-4 py-3 text-center" title="Days in Shift B">Hist B</th>
+                                    <th class="px-4 py-3 text-center" title="Days in Shift C">Hist C</th>
+                                    <th class="px-4 py-3 text-center bg-red-50/50 text-red-900">Leaves (LF)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="team-body" class="divide-y divide-slate-100">
+                                <!-- JS Injection -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
 </main>
 
     <!-- CONFIGURATION MODAL (Moved out of sidebar) -->
