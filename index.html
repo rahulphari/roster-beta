@@ -770,7 +770,7 @@
             employees = []; consolidatedHistory = {}; detectedRoles.clear(); parseWarnings = []; nameRoleMap = new Map();
             let allDatesSet = new Set();
             for (const file of files) await processFile(file, allDatesSet);
-            historicalDates = Array.from(allDatesSet).sort((a,b) => new Date(a) - new Date(b));
+            historicalDates = Array.from(allDatesSet).sort((a,b) => (parseDateKeyLocal(a) - parseDateKeyLocal(b)));
             analyzeHistory();
 
             document.getElementById('upload-status').textContent = `Loaded ${employees.length} records.`;
@@ -791,10 +791,10 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: true });
                     workbook.SheetNames.forEach(sheetName => {
                         const sheet = workbook.Sheets[sheetName];
-                        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: true });
                         parseSheetData(json, dateSet, sheetName);
                     });
                     resolve();
@@ -883,35 +883,79 @@
                 warningsList.appendChild(li);
             });
         }
-        function isValidDateHeader(val) { if (!val) return false; if (val instanceof Date) return true; const s = String(val); return !isNaN(Date.parse(s)) || /\d{1,2}[\/\-]\d{1,2}/.test(s); }
+        function isValidDateHeader(cell) {
+            if (cell === null || cell === undefined) return false;
+
+            // Excel serial date (raw numeric header)
+            if (typeof cell === 'number' && Number.isFinite(cell)) {
+                return cell > 20000 && cell < 60000; // ~1954..2064 guard
+            }
+
+            if (cell instanceof Date) return !isNaN(cell.getTime());
+
+            const s = String(cell).trim();
+            if (!s) return false;
+
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return true;               // ISO
+            if (/^\d{1,2}\s*[-\s]\s*[A-Za-z]{3,}/.test(s)) return true;  // 31-Jan
+            if (/^\d{1,2}[\/\-]\d{1,2}/.test(s)) return true;           // 31/01
+
+            return false;
+        }
+
+        function excelSerialToDateKey(serial) {
+            const p = XLSX.SSF.parse_date_code(serial);
+            if (!p || !p.y || !p.m || !p.d) return '';
+            const y = String(p.y).padStart(4, '0');
+            const m = String(p.m).padStart(2, '0');
+            const d = String(p.d).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function parseDateKeyLocal(dateKey) {
+            if (!dateKey) return null;
+            const parts = String(dateKey).trim().split('-');
+            if (parts.length !== 3) return null;
+            const y = Number(parts[0]);
+            const m = Number(parts[1]);
+            const d = Number(parts[2]);
+            if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+            return new Date(y, m - 1, d);
+        }
+
         function formatDateKey(val) {
-            // FIX: Avoid timezone/UTC shifting that creates a "ghost day" (e.g., 31 Dec instead of 1 Jan).
-            // Always derive Y-M-D using LOCAL date parts, never toISOString().
-            const toKey = (d) => {
+            const toKeyLocal = (d) => {
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, '0');
                 const day = String(d.getDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             };
 
-            if (val instanceof Date) {
-                if (isNaN(val.getTime())) return '';
-                return toKey(val);
+            if (typeof val === 'number' && Number.isFinite(val)) {
+                return excelSerialToDateKey(val);
             }
 
-            if (typeof val === 'number' && Number.isFinite(val)) {
-                // Excel serial date (1900 system) best-effort
-                const epoch = new Date(Date.UTC(1899, 11, 30));
-                const utc = new Date(epoch.getTime() + val * 86400000);
-                const local = new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
-                return toKey(local);
+            if (val instanceof Date) {
+                if (isNaN(val.getTime())) return '';
+                return toKeyLocal(val);
             }
 
             const s = String(val || '').trim();
             if (!s) return '';
 
-            const parsed = new Date(s);
-            if (!isNaN(parsed.getTime())) return toKey(parsed);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+            const monthMap = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+            const m = s.match(/^\s*(\d{1,2})\s*[-\s\/]*\s*([A-Za-z]{3,})\s*(?:[-\s\/]*\s*(\d{2,4}))?\s*$/);
+            if (m) {
+                const dd = parseInt(m[1], 10);
+                const mon = monthMap[String(m[2]).slice(0,3).toLowerCase()];
+                let yy = m[3] ? parseInt(m[3], 10) : (new Date().getFullYear());
+                if (yy < 100) yy += 2000;
+                if (Number.isFinite(dd) && Number.isFinite(mon) && Number.isFinite(yy)) {
+                    return toKeyLocal(new Date(yy, mon - 1, dd));
+                }
+            }
 
             const parts = s.split(/[\/\-]/).map(p => p.trim());
             if (parts.length >= 2) {
@@ -919,9 +963,12 @@
                 const mm = parseInt(parts[1], 10);
                 const yyyy = parts.length >= 3 ? parseInt(parts[2], 10) : (new Date().getFullYear());
                 if (Number.isFinite(dd) && Number.isFinite(mm) && mm >= 1 && mm <= 12) {
-                    return toKey(new Date(yyyy, mm - 1, dd));
+                    return toKeyLocal(new Date(yyyy, mm - 1, dd));
                 }
             }
+
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) return toKeyLocal(parsed);
 
             return '';
         }
@@ -1056,10 +1103,11 @@
             const histDateEl = document.getElementById('modal-hist-date');
             if (histDateEl) histDateEl.textContent = maxDateStr;
 
-            let nextDay = new Date(maxDateStr); nextDay.setDate(nextDay.getDate() + 1);
+            let nextDay = parseDateKeyLocal(maxDateStr) || new Date();
+            nextDay.setDate(nextDay.getDate() + 1);
 
             const startDateEl = document.getElementById('modal-start-date');
-            if (startDateEl) startDateEl.textContent = nextDay.toISOString().split('T')[0];
+            if (startDateEl) startDateEl.textContent = formatDateKey(nextDay);
 
             modal.classList.remove('hidden');
         }
@@ -1174,7 +1222,7 @@
             if(!activeConfig) activeConfig = getConfig();
             const config = activeConfig; 
 
-            let currentDt = new Date(startDateStr); dates = [];
+            let currentDt = parseDateKeyLocal(startDateStr) || new Date(startDateStr); dates = [];
             for(let i=0; i<duration; i++) { dates.push(new Date(currentDt)); currentDt.setDate(currentDt.getDate() + 1); }
             const dateKeys = dates.map(d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
 
@@ -1474,43 +1522,133 @@
         function exportToExcel() {
             if (generatedRoster.length === 0) return alert("Generate a roster first!");
 
-            const rosterAOA = [];
-            const header = ["Employee", "Role", ...dates.map(d => {
-                const day = d.getDate(); const month = d.getMonth() + 1;
-                return `${day}/${month}`;
-            })];
-            rosterAOA.push(header);
+            // 1) Roster table (keeps all visual styling)
+            const table = document.getElementById('roster-table');
+            const clone = table.cloneNode(true);
 
-            generatedRoster.forEach(emp => {
-                rosterAOA.push([emp.name, emp.logicalRole, ...(emp.schedule || [])]);
+            // Helper: Convert classes to inline styles for Excel compatibility
+            function applyInlineStyles(element) {
+                let styles = [];
+
+                const tag = element.tagName;
+                if (tag === 'TH' || tag === 'TD') {
+                    styles.push('border: 1px solid #e2e8f0');
+                    styles.push('padding: 8px');
+                    styles.push('text-align: center');
+                    styles.push('vertical-align: middle');
+                }
+
+                // --- 1. Core Shift Colors ---
+                if (element.classList.contains('cell-A')) styles.push('background-color: #dcfce7', 'color: #166534', 'border: 1px solid #bbf7d0');
+                if (element.classList.contains('cell-B')) styles.push('background-color: #fef9c3', 'color: #854d0e', 'border: 1px solid #fde047');
+                if (element.classList.contains('cell-C')) styles.push('background-color: #fee2e2', 'color: #991b1b', 'border: 1px solid #fecaca');
+                if (element.classList.contains('cell-WO')) styles.push('background-color: #f1f5f9', 'color: #64748b', 'font-style: italic');
+
+                // --- 2. Tailwind Background Maps ---
+                if (element.classList.contains('bg-green-50')) styles.push('background-color: #f0fdf4');
+                if (element.classList.contains('bg-green-100')) styles.push('background-color: #dcfce7');
+                if (element.classList.contains('bg-amber-50')) styles.push('background-color: #fffbeb');
+                if (element.classList.contains('bg-amber-100')) styles.push('background-color: #fef3c7');
+                if (element.classList.contains('bg-red-50')) styles.push('background-color: #fef2f2');
+                if (element.classList.contains('bg-red-100')) styles.push('background-color: #fee2e2');
+                if (element.classList.contains('bg-blue-50')) styles.push('background-color: #eff6ff');
+                if (element.classList.contains('bg-white')) styles.push('background-color: #ffffff');
+                if (element.classList.contains('bg-slate-50')) styles.push('background-color: #f8fafc');
+                if (element.classList.contains('bg-slate-100')) styles.push('background-color: #f1f5f9');
+
+                // --- 3. Text & Font ---
+                if (element.classList.contains('font-bold')) styles.push('font-weight: bold');
+                if (element.classList.contains('text-slate-700')) styles.push('color: #334155');
+                if (element.classList.contains('text-slate-600')) styles.push('color: #475569');
+                if (element.classList.contains('text-slate-500')) styles.push('color: #64748b');
+                if (element.classList.contains('text-slate-400')) styles.push('color: #94a3b8');
+                if (element.classList.contains('text-xs')) styles.push('font-size: 12px');
+                if (element.classList.contains('text-sm')) styles.push('font-size: 14px');
+
+                // Keep existing inline styles and append ours
+                const currentStyle = element.getAttribute('style') || '';
+                element.setAttribute('style', currentStyle + '; ' + styles.join('; '));
+
+                Array.from(element.children).forEach(child => applyInlineStyles(child));
+            }
+
+            applyInlineStyles(clone);
+
+            // 2) Team Intelligence table (requested to be included in export)
+            // NOTE: This is appended below the roster in the SAME Excel sheet for maximum compatibility.
+            const tiTable = document.createElement('table');
+            tiTable.setAttribute('style', 'border-collapse: collapse; margin-top: 24px; font-family: Arial, sans-serif;');
+            tiTable.innerHTML = `
+                <tr>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;">Team Intelligence</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f1f5f9; font-weight:bold;"></th>
+                </tr>
+                <tr>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Name</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Role</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">EP</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Last Shift</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Streak</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Days WO</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Pref W/O</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Hist A</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Hist B</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Hist C</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">W/O</th>
+                    <th style="border:1px solid #e2e8f0; padding:8px; background:#f8fafc; font-weight:bold;">Leaves</th>
+                </tr>
+            `;
+
+            (employees || []).forEach(emp => {
+                const tr = document.createElement('tr');
+                const pref = (typeof emp.prefWO === 'number') ? dayNames[emp.prefWO] : (emp.prefWO || '');
+                tr.innerHTML = `
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:left;">${emp.name ?? ''}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:left;">${emp.desg ?? emp.role ?? ''}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.ep ?? ''}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.lastShift ?? ''}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.streak ?? ''}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.daysSinceWO ?? ''}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${pref}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.histStats?.A ?? 0}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.histStats?.B ?? 0}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.histStats?.C ?? 0}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.histStats?.WO ?? 0}</td>
+                    <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${emp.totalLeaves ?? 0}</td>
+                `;
+                tiTable.appendChild(tr);
             });
 
-            const wb = XLSX.utils.book_new();
-            const ws1 = XLSX.utils.aoa_to_sheet(rosterAOA);
-            XLSX.utils.book_append_sheet(wb, ws1, "Roster");
+            const html = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="UTF-8">
+                </head>
+                <body>
+                    ${clone.outerHTML}
+                    ${tiTable.outerHTML}
+                </body>
+                </html>
+            `;
 
-            const teamAOA = [];
-            teamAOA.push(["Name", "Role", "EP", "Last Shift", "Streak", "Days WO", "Pref W/O", "Hist A", "Hist B", "Hist C", "Leaves", "Leave Factor"]);
-            employees.forEach(emp => {
-                teamAOA.push([
-                    emp.name,
-                    emp.desg || emp.role,
-                    emp.ep,
-                    emp.lastShift,
-                    emp.streak,
-                    emp.daysSinceWO,
-                    dayNames[emp.prefWO ?? 0],
-                    emp.histStats?.A ?? 0,
-                    emp.histStats?.B ?? 0,
-                    emp.histStats?.C ?? 0,
-                    emp.totalLeaves ?? 0,
-                    emp.leaveFactor ?? "0.0"
-                ]);
-            });
-            const ws2 = XLSX.utils.aoa_to_sheet(teamAOA);
-            XLSX.utils.book_append_sheet(wb, ws2, "Team Intelligence");
-
-            XLSX.writeFile(wb, "Roster_Export.xlsx");
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "Roster_Export.xls";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         window.onload = init;
