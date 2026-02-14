@@ -12,48 +12,52 @@
       const staffB = best.validator?.staffingViolations?.length || 0;
       if (staffA !== staffB) return staffA < staffB ? draft : best;
 
-      if (draft.scores?.satisfactionScore !== undefined && best.scores?.satisfactionScore !== undefined) {
-        if (draft.scores.satisfactionScore !== best.scores.satisfactionScore) {
-          return draft.scores.satisfactionScore > best.scores.satisfactionScore ? draft : best;
-        }
+      // Prefer higher satisfaction if present on both
+      const satA = draft.scores?.satisfactionScore;
+      const satB = best.scores?.satisfactionScore;
+      if (typeof satA === 'number' && typeof satB === 'number' && satA !== satB) {
+        return satA > satB ? draft : best;
       }
-      return draft;
+
+      return best;
     }, null);
   }
 
-  // -----------------------------
-  // Heuristic roster generator (NO CHANGES to internal logic vs your working heuristic)
-  // -----------------------------
-
   function dayNameToIndex(v) {
-    if (v === null || v === undefined) return null;
-    if (typeof v === 'number' && Number.isFinite(v)) return ((v % 7) + 7) % 7;
-
+    if (v == null) return null;
+    if (typeof v === 'number') return ((v % 7) + 7) % 7;
     const s = String(v).trim().toLowerCase();
     const map = {
       sun: 0, sunday: 0,
       mon: 1, monday: 1,
       tue: 2, tues: 2, tuesday: 2,
-      wed: 3, wednesday: 3,
+      wed: 3, weds: 3, wednesday: 3,
       thu: 4, thur: 4, thurs: 4, thursday: 4,
       fri: 5, friday: 5,
       sat: 6, saturday: 6,
     };
-    return map[s] ?? null;
+    if (s in map) return map[s];
+    // Try numeric string
+    const n = Number(s);
+    if (!Number.isNaN(n)) return ((n % 7) + 7) % 7;
+    return null;
   }
 
   function getPreferredWOIndex(emp) {
-    const candidate =
-      emp.prefWO ??
-      emp.prefWo ??
-      emp.preferredWO ??
-      emp.preferredWo ??
-      emp.weekOff ??
-      emp.weekoff ??
-      emp.woPref ??
-      null;
-
-    return dayNameToIndex(candidate);
+    const candidates = [
+      emp.prefWO,
+      emp.prefWo,
+      emp.preferredWO,
+      emp.preferredWo,
+      emp.weekOff,
+      emp.weekoff,
+      emp.woPref,
+    ];
+    for (const c of candidates) {
+      const idx = dayNameToIndex(c);
+      if (idx !== null) return idx;
+    }
+    return null;
   }
 
   function buildWeeklyWOCalendar(dates, empIndex, preferredDowIdx) {
@@ -71,24 +75,67 @@
     return woDays;
   }
 
+  // Attempt-1 strict WO: choose the day in each 7-day chunk whose *actual weekday*
+  // matches the employee preference. Falls back only if we can't parse dates.
+  function buildWeeklyWOCalendarStrictPref(dates, preferredDowIdx) {
+    const woDays = new Set();
+    for (let start = 0; start < dates.length; start += 7) {
+      const end = Math.min(start + 7, dates.length);
+
+      let picked = null;
+      for (let d = start; d < end; d += 1) {
+        const dt = new Date(dates[d]);
+        if (!Number.isNaN(dt.getTime()) && dt.getDay() === preferredDowIdx) {
+          picked = d;
+          break;
+        }
+      }
+
+      // If dates are unparseable or no matching weekday exists in this chunk,
+      // we fall back to start to keep the rest of the heuristic unchanged.
+      woDays.add(picked !== null ? picked : start);
+    }
+    return woDays;
+  }
+
   function isForbiddenTransition(prev, next, config) {
+    if (!prev || !next) return false;
     if (prev === 'C' && (next === 'A' || next === 'B')) return true;
-    if (!config.constraintsToggles.allowLastResortTransitions && prev === 'B' && next === 'A') return true;
+
+    const allowLastResort = !!config?.constraintsToggles?.allowLastResortTransitions;
+    if (!allowLastResort && prev === 'B' && next === 'A') return true;
+
     return false;
   }
 
   function getShifts(config) {
-    return config.shiftMode === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
+    if (config?.shiftMode === 2) return ['A', 'B'];
+    return ['A', 'B', 'C'];
   }
 
   function getRoleMin(config, role, shift) {
-    const row = config.staffingMatrix?.[role]?.[shift];
-    if (!row) return 0;
-    const v = row.min;
-    return Number.isFinite(v) ? v : 0;
+    const v = config?.staffingMatrix?.[role]?.[shift]?.min;
+    return typeof v === 'number' ? v : 0;
   }
 
-  function fallbackGenerate({ employees, dates, config, attempt }) {
+  function computeDerivedScores({ validator, dates }) {
+    const hard = validator?.hardViolations?.length || 0;
+    const staff = validator?.staffingViolations?.length || 0;
+    const denom = Math.max(1, dates.length);
+
+    // Simple proxies when a proper scorer isn't provided.
+    const rulesCompliance = Math.max(0, Math.round(100 - (hard / denom) * 100));
+    const configCompliance = Math.max(0, Math.round(100 - (staff / denom) * 100));
+
+    return {
+      rulesCompliance,
+      configCompliance,
+      satisfactionScore: 50,
+      fairnessScore: 50,
+    };
+  }
+
+  function fallbackGenerate({ employees, dates, config, attempt, attemptIndex }) {
     const shifts = getShifts(config);
 
     const minDays = attempt.minDays ?? config.continuity.minDays;
@@ -99,9 +146,13 @@
       schedule: Array(dates.length).fill(null),
     }));
 
+    // Pre-fill leave + WO
     roster.forEach((emp, idx) => {
       const prefWO = getPreferredWOIndex(emp);
-      const woDays = buildWeeklyWOCalendar(dates, idx, prefWO);
+      const woDays =
+        (attemptIndex === 0 && prefWO !== null)
+          ? buildWeeklyWOCalendarStrictPref(dates, prefWO)
+          : buildWeeklyWOCalendar(dates, idx, prefWO);
 
       for (let d = 0; d < dates.length; d += 1) {
         const leaveList = emp.leaveDays ?? emp.leaves ?? null;
@@ -119,260 +170,307 @@
       }
     });
 
-    const roles = Object.keys(config.staffingMatrix || {});
+    // Track continuity state per employee
     const state = new Map();
-
     roster.forEach((emp, idx) => {
-      const last = emp.lastShift && shifts.includes(emp.lastShift) ? emp.lastShift : shifts[idx % shifts.length];
-      const streak = Number.isFinite(emp.streak) ? emp.streak : 0;
-      state.set(emp.id, { currentShift: last, streak });
+      const seeded = shifts[idx % shifts.length];
+      const currentShift = shifts.includes(emp.lastShift) ? emp.lastShift : seeded;
+      const streak = typeof emp.streak === 'number' ? emp.streak : 0;
+      state.set(emp.id, { currentShift, streak });
     });
 
     function canAssign(emp, dayIdx, newShift) {
-      if (emp.schedule[dayIdx] === 'WO' || emp.schedule[dayIdx] === 'L') return false;
+      const cur = emp.schedule[dayIdx];
+      if (cur === 'WO' || cur === 'L') return false;
+      if (cur && cur !== null) return false;
 
       const prev = dayIdx > 0 ? emp.schedule[dayIdx - 1] : null;
-      const next = dayIdx < dates.length - 1 ? emp.schedule[dayIdx + 1] : null;
+      const next = dayIdx < emp.schedule.length - 1 ? emp.schedule[dayIdx + 1] : null;
 
-      if (prev && prev !== 'WO' && prev !== 'L' && isForbiddenTransition(prev, newShift, config)) return false;
-      if (next && next !== 'WO' && next !== 'L' && isForbiddenTransition(newShift, next, config)) return false;
+      const isShift = (v) => v && v !== 'WO' && v !== 'L';
+
+      if (isShift(prev) && isForbiddenTransition(prev, newShift, config)) return false;
+      if (isShift(next) && isForbiddenTransition(newShift, next, config)) return false;
 
       return true;
-    }
-
-    function assign(emp, dayIdx, shift) {
-      emp.schedule[dayIdx] = shift;
     }
 
     function scoreCandidate(emp, dayIdx, shift) {
       const st = state.get(emp.id);
-      const current = st?.currentShift ?? shift;
-      const streak = st?.streak ?? 0;
+      const curShift = st.currentShift;
+      const curStreak = st.streak;
 
       let penalty = 0;
 
-      if (shift !== current && streak < minDays) penalty += 50;
-      if (shift === current && streak >= maxDays) penalty += 40;
-      if (shift !== current) penalty += 5;
-      if (dayIdx === 0 && emp.lastShift && shift !== emp.lastShift) penalty += 2;
+      // Big penalty for breaking min continuity
+      if (shift !== curShift && curStreak > 0 && curStreak < minDays) penalty += 50;
+
+      // Penalty for exceeding max continuity
+      if (shift === curShift && curStreak >= maxDays) penalty += 40;
+
+      // Small penalty for switching shift
+      if (shift !== curShift) penalty += 5;
+
+      // Mild preference to continue last shift on day 0
+      if (dayIdx === 0 && shift !== emp.lastShift && shifts.includes(emp.lastShift)) penalty += 2;
 
       return penalty;
     }
 
-    function updateContinuityAfterDay(emp, dayIdx) {
-      const st = state.get(emp.id);
-      if (!st) return;
+    function countAssignedForDay(dayIdx) {
+      const counts = {};
+      for (const emp of roster) {
+        const v = emp.schedule[dayIdx];
+        if (!v || v === 'WO' || v === 'L') continue;
+        if (!counts[emp.role]) counts[emp.role] = {};
+        counts[emp.role][v] = (counts[emp.role][v] || 0) + 1;
+      }
+      return counts;
+    }
 
-      const today = emp.schedule[dayIdx];
-      if (!today || today === 'WO' || today === 'L') return;
+    function ensureCountsRoleShift(dayIdx, role, shift, counts) {
+      const minReq = getRoleMin(config, role, shift);
+      const current = counts?.[role]?.[shift] || 0;
+      let need = minReq - current;
+      if (need <= 0) return;
 
-      if (today === st.currentShift) st.streak += 1;
-      else {
-        st.currentShift = today;
-        st.streak = 1;
+      const candidates = roster
+        .filter((e) => e.role === role && e.schedule[dayIdx] === null && canAssign(e, dayIdx, shift))
+        .map((e) => ({ emp: e, penalty: scoreCandidate(e, dayIdx, shift) }))
+        .sort((a, b) => a.penalty - b.penalty);
+
+      for (let i = 0; i < candidates.length && need > 0; i += 1) {
+        const e = candidates[i].emp;
+        e.schedule[dayIdx] = shift;
+        if (!counts[role]) counts[role] = {};
+        counts[role][shift] = (counts[role][shift] || 0) + 1;
+        need -= 1;
       }
     }
 
+    function assignRemainingRole(dayIdx, role, counts) {
+      const roleEmps = roster.filter((e) => e.role === role);
+      for (const emp of roleEmps) {
+        if (emp.schedule[dayIdx] !== null) continue;
+
+        const options = shifts
+          .filter((s) => canAssign(emp, dayIdx, s))
+          .map((s) => ({
+            shift: s,
+            load: (counts?.[role]?.[s] || 0),
+            penalty: scoreCandidate(emp, dayIdx, s),
+          }))
+          .sort((a, b) => (a.load - b.load) || (a.penalty - b.penalty));
+
+        const chosen = options.length ? options[0].shift : shifts[0];
+        emp.schedule[dayIdx] = chosen;
+
+        if (!counts[role]) counts[role] = {};
+        counts[role][chosen] = (counts[role][chosen] || 0) + 1;
+      }
+    }
+
+    // Construct day by day
     for (let d = 0; d < dates.length; d += 1) {
-      const counts = {};
+      const counts = countAssignedForDay(d);
+
+      const roles = Array.from(new Set(roster.map((e) => e.role)));
       for (const role of roles) {
-        counts[role] = {};
-        for (const s of shifts) counts[role][s] = 0;
+        for (const sh of shifts) {
+          ensureCountsRoleShift(d, role, sh, counts);
+        }
+        assignRemainingRole(d, role, counts);
       }
 
-      roster.forEach((e) => {
-        const s = e.schedule[d];
-        if (!s || s === 'WO' || s === 'L') return;
-        if (!counts[e.role]) return;
-        if (counts[e.role][s] === undefined) return;
-        counts[e.role][s] += 1;
-      });
-
-      for (const role of roles) {
-        const roleEmps = roster.filter((e) => e.role === role);
-
-        for (const shift of shifts) {
-          const minReq = getRoleMin(config, role, shift);
-          let need = minReq - (counts[role]?.[shift] ?? 0);
-          if (need <= 0) continue;
-
-          const candidates = roleEmps
-            .filter((e) => e.schedule[d] === null)
-            .filter((e) => canAssign(e, d, shift))
-            .map((e) => ({ e, score: scoreCandidate(e, d, shift) }))
-            .sort((a, b) => a.score - b.score);
-
-          let i = 0;
-          while (need > 0 && i < candidates.length) {
-            const pick = candidates[i].e;
-            assign(pick, d, shift);
-            counts[role][shift] += 1;
-            need -= 1;
-            i += 1;
-          }
-        }
-
-        for (const emp of roleEmps) {
-          if (emp.schedule[d] !== null) continue;
-
-          const options = shifts
-            .filter((s) => canAssign(emp, d, s))
-            .map((s) => ({ s, c: counts[role][s], score: scoreCandidate(emp, d, s) }))
-            .sort((a, b) => (a.c - b.c) || (a.score - b.score));
-
-          const chosen = options[0]?.s ?? shifts[0];
-          assign(emp, d, chosen);
-          counts[role][chosen] += 1;
+      // Update continuity state after day assignment
+      for (const emp of roster) {
+        const v = emp.schedule[d];
+        if (!v || v === 'WO' || v === 'L') continue;
+        const st = state.get(emp.id);
+        if (st.currentShift === v) st.streak += 1;
+        else {
+          st.currentShift = v;
+          st.streak = 1;
         }
       }
-
-      roster.forEach((emp) => updateContinuityAfterDay(emp, d));
     }
 
     function trySwapSameRole(dayIdx, role, fromEmp, toShift) {
-      const partner = roster.find((e) =>
-        e.role === role &&
-        e.id !== fromEmp.id &&
-        e.schedule[dayIdx] === toShift
-      );
-      if (!partner) return false;
-
+      // find another employee with same role assigned toShift on dayIdx,
+      // swap their shift with fromEmp's current assignment to reduce min continuity break.
       const fromShift = fromEmp.schedule[dayIdx];
-      if (!fromShift || fromShift === 'WO' || fromShift === 'L') return false;
+      const candidates = roster.filter(
+        (e) =>
+          e.role === role &&
+          e.id !== fromEmp.id &&
+          e.schedule[dayIdx] === toShift
+      );
 
-      if (!canAssign(fromEmp, dayIdx, toShift)) return false;
-      if (!canAssign(partner, dayIdx, fromShift)) return false;
+      for (const other of candidates) {
+        if (!canAssign(fromEmp, dayIdx, toShift)) continue;
+        // other is already assigned toShift, but we'd like to move other to fromShift
+        // Check if other can take fromShift
+        const otherCur = other.schedule[dayIdx];
+        other.schedule[dayIdx] = null;
+        const okOther = canAssign(other, dayIdx, fromShift);
+        other.schedule[dayIdx] = otherCur;
+        if (!okOther) continue;
 
-      fromEmp.schedule[dayIdx] = toShift;
-      partner.schedule[dayIdx] = fromShift;
-      return true;
+        // perform swap
+        fromEmp.schedule[dayIdx] = toShift;
+        other.schedule[dayIdx] = fromShift;
+        return true;
+      }
+      return false;
     }
 
+    // Repair: reduce min continuity breaks by swapping same-role assignments
     for (const emp of roster) {
+      let streak = 1;
       for (let d = 1; d < dates.length; d += 1) {
         const prev = emp.schedule[d - 1];
         const cur = emp.schedule[d];
-        if (!prev || !cur) continue;
-        if (prev === 'WO' || prev === 'L' || cur === 'WO' || cur === 'L') continue;
 
-        if (prev !== cur) {
-          let streak = 1;
-          for (let k = d - 2; k >= 0; k -= 1) {
-            if (emp.schedule[k] === prev) streak += 1;
-            else break;
-          }
-          if (streak < minDays) {
-            trySwapSameRole(d, emp.role, emp, prev);
-          }
+        const isShift = (v) => v && v !== 'WO' && v !== 'L';
+
+        if (!isShift(prev) || !isShift(cur)) {
+          streak = isShift(cur) ? 1 : 0;
+          continue;
         }
+
+        if (cur === prev) {
+          streak += 1;
+          continue;
+        }
+
+        // shift changed: if previous streak was < minDays, attempt swap
+        if (streak > 0 && streak < minDays) {
+          // Try to swap today's shift with someone on prev shift
+          trySwapSameRole(d, emp.role, emp, prev);
+        }
+
+        streak = 1;
       }
     }
 
-    roster.forEach((e) => {
-      for (let d = 0; d < dates.length; d += 1) {
-        if (e.schedule[d] === null) e.schedule[d] = 'WO';
+    // Final: fill any remaining null with WO
+    for (const emp of roster) {
+      for (let d = 0; d < emp.schedule.length; d += 1) {
+        if (emp.schedule[d] === null) emp.schedule[d] = 'WO';
       }
-    });
+    }
 
     return roster;
   }
 
-  // -----------------------------
-  // Validation (unchanged)
-  // -----------------------------
   function validateRoster({ roster, dates, config }) {
-    const shifts = config.shiftMode === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
     const hardViolations = [];
     const staffingViolations = [];
 
-    roster.forEach((emp) => {
-      for (let d = 0; d < dates.length - 1; d += 1) {
-        const today = emp.schedule[d];
-        const next = emp.schedule[d + 1];
-        if (today === 'C' && ['A', 'B'].includes(next)) {
-          hardViolations.push({ employeeId: emp.id, dayIndex: d, type: 'C_RESET', explanation: 'C reset rule' });
+    const shifts = getShifts(config);
+    const minDays = config?.continuity?.minDays ?? 1;
+    const maxDays = config?.continuity?.maxDays ?? 7;
+
+    const allowLastResort = !!config?.constraintsToggles?.allowLastResortTransitions;
+
+    // Hard validations per employee
+    for (const emp of roster) {
+      // Forbidden transitions
+      for (let d = 1; d < dates.length; d += 1) {
+        const prev = emp.schedule[d - 1];
+        const cur = emp.schedule[d];
+
+        const isShift = (v) => v && v !== 'WO' && v !== 'L';
+        if (!isShift(prev) || !isShift(cur)) continue;
+
+        if (prev === 'C' && (cur === 'A' || cur === 'B')) {
+          hardViolations.push({ code: 'C_RESET', empId: emp.id, dayIdx: d, prev, cur });
         }
-        if (!config.constraintsToggles.allowLastResortTransitions && today === 'B' && next === 'A') {
-          hardViolations.push({ employeeId: emp.id, dayIndex: d, type: 'B_TO_A', explanation: 'B→A forbidden' });
+        if (!allowLastResort && prev === 'B' && cur === 'A') {
+          hardViolations.push({ code: 'B_TO_A', empId: emp.id, dayIdx: d, prev, cur });
         }
       }
 
-      for (let t = 0; t <= dates.length - 7; t += 1) {
-        const window = emp.schedule.slice(t, t + 7);
-        const woCount = window.filter((s) => s === 'WO').length;
-        const leaveCount = window.filter((s) => s === 'L').length;
-        const target = config.leavePolicy === 'L_COUNTS_AS_WO' ? woCount + leaveCount : woCount;
-        if (target !== 1) {
-          hardViolations.push({ employeeId: emp.id, dayIndex: t, type: 'WO_CADENCE', explanation: 'WO cadence violation' });
+      // WO cadence: exactly 1 WO per any 7-day window (optionally count L as WO)
+      const leaveCountsAsWO = config?.leavePolicy === 'L_COUNTS_AS_WO';
+      for (let start = 0; start + 6 < dates.length; start += 1) {
+        let wo = 0;
+        let l = 0;
+        for (let d = start; d < start + 7; d += 1) {
+          if (emp.schedule[d] === 'WO') wo += 1;
+          if (emp.schedule[d] === 'L') l += 1;
+        }
+        const effective = leaveCountsAsWO ? (wo + l) : wo;
+        if (effective !== 1) {
+          hardViolations.push({
+            code: 'WO_CADENCE',
+            empId: emp.id,
+            windowStart: start,
+            wo,
+            l,
+            effective,
+          });
         }
       }
 
-      shifts.forEach((shift) => {
+      // Min/max continuity for shifts
+      for (const sh of shifts) {
         let streak = 0;
-        emp.schedule.forEach((s) => {
-          if (s === shift) {
-            streak += 1;
-          } else {
-            if (streak > 0 && streak < config.continuity.minDays) {
-              hardViolations.push({ employeeId: emp.id, type: 'MIN_CONTINUITY', explanation: 'Min continuity violation' });
-            }
-            if (streak > config.continuity.maxDays) {
-              hardViolations.push({ employeeId: emp.id, type: 'MAX_CONTINUITY', explanation: 'Max continuity violation' });
+        for (let d = 0; d < dates.length; d += 1) {
+          const v = emp.schedule[d];
+          if (v === sh) streak += 1;
+          else {
+            if (streak > 0) {
+              if (streak < minDays) hardViolations.push({ code: 'MIN_CONTINUITY', empId: emp.id, shift: sh, streak });
+              if (streak > maxDays) hardViolations.push({ code: 'MAX_CONTINUITY', empId: emp.id, shift: sh, streak });
             }
             streak = 0;
           }
-        });
-        if (streak > 0 && streak < config.continuity.minDays) {
-          hardViolations.push({ employeeId: emp.id, type: 'MIN_CONTINUITY', explanation: 'Min continuity violation' });
         }
-        if (streak > config.continuity.maxDays) {
-          hardViolations.push({ employeeId: emp.id, type: 'MAX_CONTINUITY', explanation: 'Max continuity violation' });
+        if (streak > 0) {
+          if (streak < minDays) hardViolations.push({ code: 'MIN_CONTINUITY', empId: emp.id, shift: sh, streak });
+          if (streak > maxDays) hardViolations.push({ code: 'MAX_CONTINUITY', empId: emp.id, shift: sh, streak });
         }
-      });
-    });
+      }
+    }
 
+    // Staffing validations per day
     for (let d = 0; d < dates.length; d += 1) {
-      shifts.forEach((shift) => {
-        Object.keys(config.staffingMatrix).forEach((role) => {
-          const limits = config.staffingMatrix[role][shift] || { min: 0, max: 0 };
-          const count = roster.filter((e) => e.role === role && e.schedule[d] === shift).length;
-          if (count < limits.min) {
-            staffingViolations.push({ dayIndex: d, role, shift, type: 'min', count, limit: limits.min });
-          }
-          if (limits.max !== null && limits.max !== undefined && count > limits.max) {
-            staffingViolations.push({ dayIndex: d, role, shift, type: 'max', count, limit: limits.max });
-          }
-        });
-      });
+      const counts = {};
+      for (const emp of roster) {
+        const v = emp.schedule[d];
+        if (!v || v === 'WO' || v === 'L') continue;
+        if (!counts[emp.role]) counts[emp.role] = {};
+        counts[emp.role][v] = (counts[emp.role][v] || 0) + 1;
+      }
+
+      const roles = Object.keys(config?.staffingMatrix || {});
+      for (const role of roles) {
+        for (const sh of shifts) {
+          const req = config?.staffingMatrix?.[role]?.[sh];
+          if (!req) continue;
+          const min = typeof req.min === 'number' ? req.min : 0;
+          const max = (typeof req.max === 'number') ? req.max : null;
+          const got = counts?.[role]?.[sh] || 0;
+
+          if (got < min) staffingViolations.push({ code: 'STAFF_MIN', dayIdx: d, role, shift: sh, got, min });
+          if (max !== null && got > max) staffingViolations.push({ code: 'STAFF_MAX', dayIdx: d, role, shift: sh, got, max });
+        }
+      }
     }
 
     return { hardViolations, staffingViolations };
-  }
-
-  function computeDerivedScores({ validator, dates }) {
-    const totalDays = Math.max(1, dates.length);
-    const hard = validator?.hardViolations?.length || 0;
-    const staffing = validator?.staffingViolations?.length || 0;
-
-    const rules = Math.max(0, Math.min(100, Math.round(100 * (1 - (hard / (totalDays + 1))))));
-    const config = Math.max(0, Math.min(100, Math.round(100 * (1 - (staffing / (totalDays + 1))))));
-
-    return {
-      rulesCompliance: rules,
-      configCompliance: config,
-      satisfactionScore: 50,
-      fairnessScore: 50,
-    };
   }
 
   async function generateRoster({ employees, dates, config, onProgress }) {
     const attempts = window.RelaxationPlanner.buildAttempts(config);
     const drafts = [];
 
-    for (const attempt of attempts) {
+    for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+      const attempt = attempts[attemptIndex];
       if (onProgress) onProgress(attempt.label);
 
-      const roster = fallbackGenerate({ employees, dates, config, attempt });
+      const roster = fallbackGenerate({ employees, dates, config, attempt, attemptIndex });
 
       const validator = validateRoster({ roster, dates, config });
 
@@ -387,7 +485,7 @@
 
       let explained = null;
       try {
-        explained = window.Explainer?.explainRoster?.({ roster, employees, dates, config, validatorResult: validator }) || null;
+        explained = window.Explainer?.explainRoster?.({ roster, employees, dates, config, validatorResult: validator, scoreResult: scored }) || null;
       } catch {
         explained = null;
       }
@@ -398,7 +496,7 @@
         status: 'heuristic',
         validator,
         scores,
-        stats: scored?.stats || {},
+        stats: scored?.stats || null,
         explanation: explained || {},
       });
     }
